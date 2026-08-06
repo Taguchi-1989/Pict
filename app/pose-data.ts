@@ -10,7 +10,9 @@ export type Pose = Record<JointName, Point>;
 export type PoseView = "front" | "side";
 export type ItemType =
   | "none" | "wrench" | "screwdriver" | "hammer" | "drill"
-  | "sprayer" | "hose" | "flashlight" | "pliers" | "saw" | "brush";
+  | "sprayer" | "hose" | "flashlight" | "pliers" | "saw" | "brush"
+  | "cutter" | "scissors" | "remote" | "rag";
+export type SceneType = "none" | "cutting-table" | "scissor-table" | "wiping-table" | "overhead-crane";
 
 export type PresetItem = { type: ItemType; rotation: number; scale: number };
 export type PresetDefaults = {
@@ -18,6 +20,7 @@ export type PresetDefaults = {
   harness?: boolean;
   leftItem?: PresetItem;
   rightItem?: PresetItem;
+  scene?: SceneType;
 };
 
 export type PosePreset = {
@@ -100,6 +103,23 @@ const sideOperate: Partial<Record<JointName, Point>> = {
   hipL: { x: 197, y: 248 }, hipR: { x: 219, y: 243 },
   kneeL: { x: 173, y: 327 }, ankleL: { x: 147, y: 400 },
   kneeR: { x: 239, y: 322 }, ankleR: { x: 274, y: 396 },
+};
+
+const sideTableWork: Partial<Record<JointName, Point>> = {
+  ...sideCrouch,
+  head: { x: 247, y: 115 }, neck: { x: 222, y: 147 },
+  shoulderL: { x: 207, y: 156 }, shoulderR: { x: 232, y: 149 },
+  elbowL: { x: 246, y: 198 }, wristL: { x: 278, y: 238 },
+  elbowR: { x: 270, y: 194 }, wristR: { x: 310, y: 239 },
+  hipL: { x: 196, y: 267 }, hipR: { x: 220, y: 261 },
+};
+
+const sideRemoteWork: Partial<Record<JointName, Point>> = {
+  ...sideStand,
+  head: { x: 226, y: 74 }, neck: { x: 209, y: 113 },
+  shoulderL: { x: 196, y: 123 }, shoulderR: { x: 220, y: 117 },
+  elbowL: { x: 239, y: 164 }, wristL: { x: 269, y: 194 },
+  elbowR: { x: 253, y: 153 }, wristR: { x: 286, y: 190 },
 };
 
 export const posePresets: PosePreset[] = [
@@ -190,6 +210,18 @@ export const posePresets: PosePreset[] = [
   }, "front", { helmet: true }),
   make("height-check", "高所設備を確認", "作業", sideReach, "side", {
     helmet: true, harness: true, rightItem: { type: "flashlight", rotation: -35, scale: 1.05 },
+  }),
+  make("cutter-table", "作業台でカッター切断", "作業", sideTableWork, "side", {
+    helmet: true, scene: "cutting-table", rightItem: { type: "cutter", rotation: 18, scale: 1.1 },
+  }),
+  make("scissors-table", "作業台でハサミ切断", "作業", sideTableWork, "side", {
+    scene: "scissor-table", rightItem: { type: "scissors", rotation: 12, scale: 1.1 },
+  }),
+  make("crane-remote", "天井クレーンを操作", "作業", sideRemoteWork, "side", {
+    helmet: true, scene: "overhead-crane", rightItem: { type: "remote", rotation: 4, scale: 1.05 },
+  }),
+  make("wipe-table", "ウェスで拭き取り", "作業", sideTableWork, "side", {
+    scene: "wiping-table", rightItem: { type: "rag", rotation: 8, scale: 1.15 },
   }),
   make("side-stand", "横向き・直立", "基本", sideStand, "side"),
 ];
