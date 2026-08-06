@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -26,6 +28,8 @@ const categories = ["すべて", "基本", "移動", "作業", "注意・合図"
 
 type FigureStyle = {
   color: string;
+  secondaryColor: string;
+  colorMode: "two-tone" | "mono";
   strokeWidth: number;
   headRadius: number;
   background: "transparent" | "white";
@@ -68,10 +72,24 @@ const itemOptions: { id: ItemType; label: string; short: string }[] = [
 
 const initialStyle: FigureStyle = {
   color: "#111111",
-  strokeWidth: 22,
+  secondaryColor: "#7b8480",
+  colorMode: "two-tone",
+  strokeWidth: 24,
   headRadius: 28,
   background: "transparent",
 };
+
+const tableScenes = new Set<SceneType>([
+  "cutting-table",
+  "scissor-table",
+  "wiping-table",
+  "measuring-table",
+  "welding-table",
+]);
+
+function sceneHasTable(scene: SceneType) {
+  return tableScenes.has(scene);
+}
 
 const emptyItems: HeldItems = {
   left: { type: "none", rotation: -10, scale: 1 },
@@ -331,8 +349,9 @@ function ItemShape({ type }: { type: ItemType }) {
   return null;
 }
 
-function SceneLayer({ scene, pose, items }: { scene: SceneType; pose: Pose; items: HeldItems }) {
+function SceneLayer({ scene, pose, items, showTable }: { scene: SceneType; pose: Pose; items: HeldItems; showTable: boolean }) {
   if (scene === "none") return null;
+  if (!showTable && sceneHasTable(scene)) return null;
   const toolHand: Hand = items.right.type !== "none" ? "right" : "left";
   const wrist = toolHand === "right" ? pose.wristR : pose.wristL;
   const tableX = Math.max(20, Math.min(210, wrist.x - 75));
@@ -455,9 +474,9 @@ function HeldItemLayer({ pose, items }: { pose: Pose; items: HeldItems }) {
         if (item.type === "none") return null;
         const wrist = hand === "left" ? pose.wristL : pose.wristR;
         return (
-          <g
+          <g className="held-item-layer"
             key={hand}
-            color="#111111"
+            color="var(--primary-color)"
             transform={`translate(${wrist.x} ${wrist.y}) rotate(${item.rotation}) scale(${item.scale})`}
           >
             <ItemShape type={item.type} />
@@ -475,23 +494,24 @@ function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureS
   return (
     <>
       {equipment.harness && (
-        <g className="equipment-layer" fill="none" stroke="#9aa0a3" strokeWidth={Math.max(6, style.strokeWidth * 0.32)} strokeLinecap="round" strokeLinejoin="round">
+        <g className="equipment-layer harness-layer" fill="none" stroke="var(--secondary-color)" strokeWidth={Math.max(6, style.strokeWidth * 0.32)} strokeLinecap="round" strokeLinejoin="round">
           <path d={`M ${pose.shoulderL.x} ${pose.shoulderL.y + 5} L ${hipMid.x + 11} ${hipMid.y - 4} L ${pose.shoulderR.x} ${pose.shoulderR.y + 5}`} />
           <path d={`M ${pose.shoulderR.x} ${pose.shoulderR.y + 5} L ${hipMid.x - 11} ${hipMid.y - 4} L ${pose.shoulderL.x} ${pose.shoulderL.y + 5}`} />
           <path d={`M ${pose.hipL.x - 3} ${pose.hipL.y - 8} L ${pose.hipR.x + 3} ${pose.hipR.y - 8}`} />
           <path d={`M ${pose.hipL.x} ${pose.hipL.y - 4} Q ${pose.hipL.x - 13} ${pose.hipL.y + 24} ${pose.hipL.x + 3} ${pose.hipL.y + 36}`} />
           <path d={`M ${pose.hipR.x} ${pose.hipR.y - 4} Q ${pose.hipR.x + 13} ${pose.hipR.y + 24} ${pose.hipR.x - 3} ${pose.hipR.y + 36}`} />
-          <circle cx={shoulderMid.x} cy={(shoulderMid.y + hipMid.y) / 2} r="5" fill="#9aa0a3" stroke="#6f7679" strokeWidth="2" />
+          <circle cx={shoulderMid.x} cy={(shoulderMid.y + hipMid.y) / 2} r="5" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2" />
         </g>
       )}
       {equipment.helmet && (
-        <g className="equipment-layer" stroke="#111111" strokeWidth="4" strokeLinejoin="round">
+        <g className="equipment-layer helmet-layer" stroke="var(--primary-color)" strokeWidth="4" strokeLinejoin="round">
           <path
-            d={`M ${head.x - style.headRadius - 4} ${head.y - 4} Q ${head.x - style.headRadius + 2} ${head.y - style.headRadius - 27} ${head.x} ${head.y - style.headRadius - 29} Q ${head.x + style.headRadius - 1} ${head.y - style.headRadius - 24} ${head.x + style.headRadius + 4} ${head.y - 2} Z`}
-            fill="#111111"
+            d={`M ${head.x - style.headRadius - 3} ${head.y - 8} Q ${head.x - style.headRadius + 1} ${head.y - style.headRadius - 23} ${head.x} ${head.y - style.headRadius - 25} Q ${head.x + style.headRadius - 2} ${head.y - style.headRadius - 21} ${head.x + style.headRadius + 3} ${head.y - 8} Z`}
+            fill="var(--primary-color)"
           />
-          <path d={`M ${head.x - style.headRadius - 11} ${head.y - 2} H ${head.x + style.headRadius + 13}`} strokeLinecap="round" />
-          <path d={`M ${head.x - style.headRadius + 1} ${head.y - 7} Q ${head.x} ${head.y - 14} ${head.x + style.headRadius - 1} ${head.y - 7}`} fill="none" stroke="white" strokeWidth="3" opacity=".8" />
+          <rect x={head.x - style.headRadius - 12} y={head.y - 10} width={style.headRadius * 2 + 27} height="9" rx="4.5" fill="var(--primary-color)" stroke="none" />
+          <path d={`M ${head.x - 2} ${head.y - style.headRadius - 24} V ${head.y - style.headRadius - 10}`} fill="none" stroke="white" strokeWidth="3" opacity=".75" />
+          <path d={`M ${head.x - style.headRadius + 3} ${head.y - 10} Q ${head.x} ${head.y - 16} ${head.x + style.headRadius - 3} ${head.y - 10}`} fill="none" stroke="white" strokeWidth="3" opacity=".72" />
         </g>
       )}
     </>
@@ -505,6 +525,7 @@ function Figure({
   equipment = { helmet: false, harness: false },
   items = emptyItems,
   scene = "none",
+  showTable = true,
   editable = false,
   selected,
   onJointPointerDown,
@@ -515,6 +536,7 @@ function Figure({
   equipment?: Equipment;
   items?: HeldItems;
   scene?: SceneType;
+  showTable?: boolean;
   editable?: boolean;
   selected?: JointName | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
@@ -529,10 +551,15 @@ function Figure({
     strokeLinejoin: "round" as const,
   };
   const rearOpacity = view === "side" ? 0.38 : 1;
+  const secondaryColor = style.colorMode === "mono" ? style.color : style.secondaryColor;
+  const figureVariables = {
+    "--primary-color": style.color,
+    "--secondary-color": secondaryColor,
+  } as CSSProperties;
 
   return (
-    <>
-      <SceneLayer scene={scene} pose={pose} items={items} />
+    <g className="figure-root" style={figureVariables}>
+      <SceneLayer scene={scene} pose={pose} items={items} showTable={showTable} />
       <path opacity={rearOpacity} d={`M ${pose.shoulderL.x} ${pose.shoulderL.y} L ${pose.elbowL.x} ${pose.elbowL.y} L ${pose.wristL.x} ${pose.wristL.y}`} {...limbProps} />
       <path opacity={rearOpacity} d={`M ${pose.hipL.x} ${pose.hipL.y} L ${pose.kneeL.x} ${pose.kneeL.y} L ${pose.ankleL.x} ${pose.ankleL.y}`} {...limbProps} />
       <path d={`M ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.elbowR.x} ${pose.elbowR.y} L ${pose.wristR.x} ${pose.wristR.y}`} {...limbProps} />
@@ -565,11 +592,11 @@ function Figure({
           aria-label={`${jointLabels[joint]}を移動`}
         />
       ))}
-    </>
+    </g>
   );
 }
 
-function serializeSvg(source: SVGSVGElement, background: FigureStyle["background"]) {
+function serializeSvg(source: SVGSVGElement, style: FigureStyle) {
   const root = source.cloneNode(true) as SVGSVGElement;
   root.querySelectorAll(".editor-only").forEach((node) => node.remove());
   root.classList.remove("editor-canvas");
@@ -580,7 +607,16 @@ function serializeSvg(source: SVGSVGElement, background: FigureStyle["background
   root.setAttribute("height", "440");
   root.setAttribute("role", "img");
   root.setAttribute("aria-label", "編集したピクトグラム");
-  if (background === "white") {
+  const secondaryColor = style.colorMode === "mono" ? style.color : style.secondaryColor;
+  root.querySelectorAll<SVGElement>(".scene-layer, .scene-layer *").forEach((node) => {
+    const fill = node.getAttribute("fill");
+    const stroke = node.getAttribute("stroke");
+    if (fill && fill !== "none" && fill !== "white") node.setAttribute("fill", secondaryColor);
+    if (stroke && stroke !== "none" && stroke !== "white") node.setAttribute("stroke", secondaryColor);
+  });
+  root.querySelectorAll<SVGElement>('.held-item-layer [fill^="#"]').forEach((node) => node.setAttribute("fill", secondaryColor));
+  root.querySelectorAll<SVGElement>('.held-item-layer [stroke^="#"]').forEach((node) => node.setAttribute("stroke", secondaryColor));
+  if (style.background === "white") {
     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     rect.setAttribute("width", "400");
     rect.setAttribute("height", "440");
@@ -606,6 +642,7 @@ export default function PoseEditor() {
   const [equipment, setEquipment] = useState<Equipment>(() => defaultsToEquipment(posePresets[0].defaults));
   const [items, setItems] = useState<HeldItems>(() => defaultsToItems(posePresets[0].defaults));
   const [scene, setScene] = useState<SceneType>(() => defaultsToScene(posePresets[0].defaults));
+  const [showTable, setShowTable] = useState(true);
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
@@ -635,6 +672,7 @@ export default function PoseEditor() {
     setEquipment(defaultsToEquipment(preset.defaults));
     setItems(defaultsToItems(preset.defaults));
     setScene(defaultsToScene(preset.defaults));
+    setShowTable(true);
     setSelectedJoint(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
@@ -725,7 +763,7 @@ export default function PoseEditor() {
 
   const reset = () => loadPreset(presetId);
 
-  const getSvg = () => svgRef.current ? serializeSvg(svgRef.current, figureStyle.background) : null;
+  const getSvg = () => svgRef.current ? serializeSvg(svgRef.current, figureStyle) : null;
 
   const downloadSvg = () => {
     const svg = getSvg();
@@ -793,6 +831,7 @@ export default function PoseEditor() {
         </div>
         <p className="header-copy">姿勢・保護具・道具を組み合わせ、作業マニュアル用の人物図を保存。</p>
         <div className="export-actions">
+          <Link className="button secondary nav-link" href="/about">About</Link>
           <button className="button secondary" onClick={downloadPng}>PNG保存</button>
           <button className="button primary" onClick={downloadSvg}>SVGを保存</button>
         </div>
@@ -841,7 +880,7 @@ export default function PoseEditor() {
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
@@ -862,6 +901,16 @@ export default function PoseEditor() {
                 <span className="option-icon harness-icon" aria-hidden="true">Y</span>
                 <span><strong>墜落制止用器具</strong><small>{equipment.harness ? "表示中" : "非表示"}</small></span>
                 <i>{equipment.harness ? "ON" : "OFF"}</i>
+              </button>
+              <button
+                className={showTable && sceneHasTable(scene) ? "option-toggle active" : "option-toggle"}
+                onClick={() => setShowTable((current) => !current)}
+                aria-pressed={showTable}
+                disabled={!sceneHasTable(scene)}
+              >
+                <span className="option-icon table-icon" aria-hidden="true" />
+                <span><strong>作業台</strong><small>{sceneHasTable(scene) ? (showTable ? "表示中" : "非表示") : "このプリセットにはありません"}</small></span>
+                <i>{showTable && sceneHasTable(scene) ? "ON" : "OFF"}</i>
               </button>
             </div>
           </div>
@@ -890,13 +939,29 @@ export default function PoseEditor() {
           </div>
 
           <div className="setting-group compact-style-group">
-            <label>人物の色</label>
+            <label>配色モード <strong>原則2色</strong></label>
+            <div className="segmented">
+              <button className={figureStyle.colorMode === "two-tone" ? "active" : ""} onClick={() => setFigureStyle((current) => ({ ...current, colorMode: "two-tone" }))}>2色</button>
+              <button className={figureStyle.colorMode === "mono" ? "active" : ""} onClick={() => setFigureStyle((current) => ({ ...current, colorMode: "mono" }))}>単色</button>
+            </div>
+            <label>主色</label>
             <div className="color-row">
-              {["#111111", "#005EB8", "#F05A28", "#138A5B"].map((color) => (
+              {["#111111", "#263238", "#334155", "#0f172a"].map((color) => (
                 <button key={color} aria-label={`色 ${color}`} className={figureStyle.color === color ? "swatch active" : "swatch"} style={{ background: color }} onClick={() => setFigureStyle((current) => ({ ...current, color }))} />
               ))}
               <input type="color" value={figureStyle.color} onChange={(event) => setFigureStyle((current) => ({ ...current, color: event.target.value }))} aria-label="任意の色を選択" />
             </div>
+            {figureStyle.colorMode === "two-tone" && (
+              <>
+                <label>補助色</label>
+                <div className="color-row">
+                  {["#7b8480", "#64748b", "#8b6f47", "#477b72"].map((color) => (
+                    <button key={color} aria-label={`補助色 ${color}`} className={figureStyle.secondaryColor === color ? "swatch active" : "swatch"} style={{ background: color }} onClick={() => setFigureStyle((current) => ({ ...current, secondaryColor: color }))} />
+                  ))}
+                  <input type="color" value={figureStyle.secondaryColor} onChange={(event) => setFigureStyle((current) => ({ ...current, secondaryColor: event.target.value }))} aria-label="任意の補助色を選択" />
+                </div>
+              </>
+            )}
             <label htmlFor="stroke">手足の太さ <strong>{figureStyle.strokeWidth}px</strong></label>
             <input id="stroke" type="range" min="10" max="34" value={figureStyle.strokeWidth} onChange={(event) => setFigureStyle((current) => ({ ...current, strokeWidth: Number(event.target.value) }))} />
             <label htmlFor="head">頭の大きさ <strong>{figureStyle.headRadius}px</strong></label>
@@ -921,8 +986,8 @@ export default function PoseEditor() {
       </section>
 
       <footer>
-        <p>作業マニュアル・安全資料・手順書向けの人物素材</p>
-        <p>正面 / 横向き・安全装備・工具・散水器具に対応</p>
+        <p><Link href="/about">About・商用利用について</Link>　<a href="mailto:nandemokarute.ch@gmail.com">機能要望</a></p>
+        <p>© 2026 ZEALBOOTCAMP. All rights reserved.</p>
       </footer>
     </main>
   );
