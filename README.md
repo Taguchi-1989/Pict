@@ -11,8 +11,9 @@
 - ヘルメットと墜落制止用器具をそれぞれ独立して表示・非表示
 - 左右の手に工具・測定具・記録具など22種類のアイテムを配置
 - 作業台、材料、寸法線、溶接火花、検査対象、天井クレーン、段ボール箱もSVGに含めて保存
+- 作業台の表示・非表示を個別に切り替え
 - 手持ちアイテムの角度・大きさ調整
-- 色、線幅、頭サイズ、背景の調整
+- 黒＋グレーを基本とする2色モードと単色モード、線幅、頭サイズ、背景の調整
 - 透かしや編集ハンドルを含まないSVG・PNG保存
 - 編集データをサーバーへ送信しないクライアント処理
 
@@ -31,23 +32,14 @@ npm run build
 
 ## Cloudflare公開方針
 
-サーバー処理を持たない静的なNext.jsアプリとしてCloudflare Pagesへ配置する。Cloudflare Dashboardの **Workers & Pages → Create application → Pages → Import an existing Git repository** からこのリポジトリを接続する。
-
-| 設定 | 値 |
-| --- | --- |
-| Production branch | `main` |
-| Framework preset | Next.js (Static HTML Export) |
-| Build command | `npm run build` |
-| Build output directory | `out` |
-
-mainブランチへのpushで本番環境を、Pull Requestでプレビュー環境を自動更新する。
+Next.jsアプリとしてCloudflare Workersへ配置する。GitHubにリポジトリを作成後、Cloudflare Dashboardの **Workers & Pages → Create application → Import a repository** から接続し、mainブランチの更新を自動公開する。
 
 通常の姿勢編集とSVG/PNG保存はブラウザ内で完結する。フェーズ3でAI APIを追加するまでは、APIキーやデータベースを必要としない。
 
 詳細は [要件定義・実装計画](docs/REQUIREMENTS.md) を参照。
 
-現在のMVPは [ピクトポーズ](https://pictogram-pose-editor.tgc-h-17.chatgpt.site) で確認できます。
-
 ## ライセンス
 
 ソースコードはMIT License。利用者が本アプリで作成したSVG・PNGへ、本アプリ独自の追加制限や透かしは付与しません。
+
+書き出したSVG・PNGは個人・法人を問わず商用利用できます。機能要望は `nandemokarute.ch@gmail.com` まで。
