@@ -11,8 +11,11 @@ export type PoseView = "front" | "side";
 export type ItemType =
   | "none" | "wrench" | "screwdriver" | "hammer" | "drill"
   | "sprayer" | "hose" | "flashlight" | "pliers" | "saw" | "brush"
-  | "cutter" | "scissors" | "remote" | "rag";
-export type SceneType = "none" | "cutting-table" | "scissor-table" | "wiping-table" | "overhead-crane";
+  | "cutter" | "scissors" | "remote" | "rag" | "clipboard" | "pen"
+  | "stopwatch" | "ruler" | "caliper" | "welding-torch" | "inspection-hammer" | "box";
+export type SceneType =
+  | "none" | "cutting-table" | "scissor-table" | "wiping-table" | "overhead-crane"
+  | "measuring-table" | "welding-table" | "impact-inspection" | "box-carry";
 
 export type PresetItem = { type: ItemType; rotation: number; scale: number };
 export type PresetDefaults = {
@@ -122,6 +125,31 @@ const sideRemoteWork: Partial<Record<JointName, Point>> = {
   elbowR: { x: 253, y: 153 }, wristR: { x: 286, y: 190 },
 };
 
+const sideRecordWork: Partial<Record<JointName, Point>> = {
+  ...sideStand,
+  head: { x: 228, y: 78 }, neck: { x: 210, y: 116 },
+  shoulderL: { x: 197, y: 125 }, shoulderR: { x: 220, y: 119 },
+  elbowL: { x: 225, y: 166 }, wristL: { x: 254, y: 188 },
+  elbowR: { x: 253, y: 158 }, wristR: { x: 272, y: 180 },
+};
+
+const sideMeasureWork: Partial<Record<JointName, Point>> = {
+  ...sideTableWork,
+  head: { x: 250, y: 109 }, neck: { x: 224, y: 144 },
+  elbowL: { x: 243, y: 191 }, wristL: { x: 275, y: 229 },
+  elbowR: { x: 272, y: 185 }, wristR: { x: 311, y: 226 },
+};
+
+const frontCarryBox: Partial<Record<JointName, Point>> = {
+  head: { x: 200, y: 70 }, neck: { x: 200, y: 110 },
+  shoulderL: { x: 164, y: 120 }, shoulderR: { x: 236, y: 120 },
+  elbowL: { x: 146, y: 180 }, wristL: { x: 166, y: 226 },
+  elbowR: { x: 254, y: 180 }, wristR: { x: 234, y: 226 },
+  hipL: { x: 181, y: 252 }, hipR: { x: 219, y: 252 },
+  kneeL: { x: 161, y: 326 }, ankleL: { x: 133, y: 398 },
+  kneeR: { x: 239, y: 326 }, ankleR: { x: 266, y: 398 },
+};
+
 export const posePresets: PosePreset[] = [
   make("neutral", "直立", "基本"),
   make("sit", "座る", "基本", {
@@ -222,6 +250,29 @@ export const posePresets: PosePreset[] = [
   }),
   make("wipe-table", "ウェスで拭き取り", "作業", sideTableWork, "side", {
     scene: "wiping-table", rightItem: { type: "rag", rotation: 8, scale: 1.15 },
+  }),
+  make("record-check", "ボードに記録", "作業", sideRecordWork, "side", {
+    helmet: true,
+    leftItem: { type: "clipboard", rotation: 8, scale: 1.05 },
+    rightItem: { type: "pen", rotation: 44, scale: 0.95 },
+  }),
+  make("time-measure", "ストップウォッチで測定", "作業", sideRecordWork, "side", {
+    rightItem: { type: "stopwatch", rotation: 2, scale: 1.05 },
+  }),
+  make("ruler-measure", "定規で寸法測定", "作業", sideMeasureWork, "side", {
+    scene: "measuring-table", rightItem: { type: "ruler", rotation: 2, scale: 1.1 },
+  }),
+  make("caliper-measure", "ノギスで寸法測定", "作業", sideMeasureWork, "side", {
+    scene: "measuring-table", rightItem: { type: "caliper", rotation: 3, scale: 1.1 },
+  }),
+  make("welding-work", "溶接作業", "作業", sideCrouch, "side", {
+    scene: "welding-table", rightItem: { type: "welding-torch", rotation: 22, scale: 1.1 },
+  }),
+  make("impact-inspection", "打音検査", "作業", sideOperate, "side", {
+    helmet: true, scene: "impact-inspection", rightItem: { type: "inspection-hammer", rotation: -18, scale: 1.05 },
+  }),
+  make("carry-box", "段ボール箱を運搬", "作業", frontCarryBox, "front", {
+    helmet: true, scene: "box-carry",
   }),
   make("side-stand", "横向き・直立", "基本", sideStand, "side"),
 ];
