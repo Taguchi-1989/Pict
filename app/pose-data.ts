@@ -16,11 +16,13 @@ export type JointName =
 
 export type Point = { x: number; y: number };
 export type Pose = Record<JointName, Point>;
+export type PoseView = "front" | "side";
 
 export type PosePreset = {
   id: string;
   name: string;
-  category: "基本" | "移動" | "作業" | "注意・合図";
+  category: "基本" | "移動" | "作業" | "注意・合図" | "横向き";
+  view: PoseView;
   pose: Pose;
 };
 
@@ -46,11 +48,13 @@ function make(
   name: string,
   category: PosePreset["category"],
   overrides: Partial<Record<JointName, Point>> = {},
+  view: PoseView = "front",
 ): PosePreset {
   return {
     id,
     name,
     category,
+    view,
     pose: Object.fromEntries(
       Object.entries(base).map(([key, point]) => [
         key,
@@ -231,6 +235,60 @@ export const posePresets: PosePreset[] = [
     elbowL: { x: 118, y: 145 }, wristL: { x: 70, y: 110 },
     elbowR: { x: 272, y: 142 }, wristR: { x: 324, y: 112 },
   }),
+  make("side-stand", "横向き・直立", "横向き", {
+    head: { x: 214, y: 72 }, neck: { x: 202, y: 112 },
+    shoulderL: { x: 194, y: 120 }, shoulderR: { x: 208, y: 120 },
+    elbowL: { x: 184, y: 181 }, wristL: { x: 180, y: 238 },
+    elbowR: { x: 220, y: 180 }, wristR: { x: 224, y: 238 },
+    hipL: { x: 194, y: 241 }, hipR: { x: 209, y: 240 },
+    kneeL: { x: 190, y: 323 }, ankleL: { x: 186, y: 399 },
+    kneeR: { x: 215, y: 322 }, ankleR: { x: 220, y: 398 },
+  }, "side"),
+  make("side-walk", "横向き・歩く", "横向き", {
+    head: { x: 226, y: 76 }, neck: { x: 210, y: 113 },
+    shoulderL: { x: 200, y: 122 }, shoulderR: { x: 216, y: 118 },
+    elbowL: { x: 166, y: 166 }, wristL: { x: 132, y: 208 },
+    elbowR: { x: 252, y: 162 }, wristR: { x: 286, y: 204 },
+    hipL: { x: 202, y: 242 }, hipR: { x: 218, y: 239 },
+    kneeL: { x: 166, y: 320 }, ankleL: { x: 112, y: 386 },
+    kneeR: { x: 254, y: 315 }, ankleR: { x: 310, y: 386 },
+  }, "side"),
+  make("side-crouch", "横向き・かがむ", "横向き", {
+    head: { x: 258, y: 124 }, neck: { x: 226, y: 152 },
+    shoulderL: { x: 213, y: 159 }, shoulderR: { x: 229, y: 153 },
+    elbowL: { x: 192, y: 208 }, wristL: { x: 215, y: 248 },
+    elbowR: { x: 268, y: 191 }, wristR: { x: 302, y: 226 },
+    hipL: { x: 197, y: 268 }, hipR: { x: 214, y: 264 },
+    kneeL: { x: 150, y: 323 }, ankleL: { x: 118, y: 389 },
+    kneeR: { x: 258, y: 318 }, ankleR: { x: 296, y: 386 },
+  }, "side"),
+  make("side-kneel", "横向き・片膝", "横向き", {
+    head: { x: 222, y: 86 }, neck: { x: 208, y: 124 },
+    shoulderL: { x: 199, y: 132 }, shoulderR: { x: 216, y: 128 },
+    elbowL: { x: 177, y: 185 }, wristL: { x: 190, y: 236 },
+    elbowR: { x: 242, y: 181 }, wristR: { x: 230, y: 238 },
+    hipL: { x: 197, y: 251 }, hipR: { x: 215, y: 249 },
+    kneeL: { x: 167, y: 332 }, ankleL: { x: 118, y: 392 },
+    kneeR: { x: 242, y: 335 }, ankleR: { x: 321, y: 390 },
+  }, "side"),
+  make("side-reach", "横向き・手を伸ばす", "横向き", {
+    head: { x: 225, y: 74 }, neck: { x: 209, y: 112 },
+    shoulderL: { x: 198, y: 121 }, shoulderR: { x: 216, y: 116 },
+    elbowL: { x: 178, y: 176 }, wristL: { x: 168, y: 229 },
+    elbowR: { x: 267, y: 108 }, wristR: { x: 326, y: 91 },
+    hipL: { x: 196, y: 242 }, hipR: { x: 214, y: 239 },
+    kneeL: { x: 191, y: 323 }, ankleL: { x: 187, y: 399 },
+    kneeR: { x: 220, y: 321 }, ankleR: { x: 226, y: 397 },
+  }, "side"),
+  make("side-spray", "横向き・散水", "横向き", {
+    head: { x: 226, y: 82 }, neck: { x: 211, y: 119 },
+    shoulderL: { x: 200, y: 128 }, shoulderR: { x: 218, y: 122 },
+    elbowL: { x: 177, y: 181 }, wristL: { x: 193, y: 224 },
+    elbowR: { x: 260, y: 155 }, wristR: { x: 305, y: 180 },
+    hipL: { x: 198, y: 247 }, hipR: { x: 216, y: 244 },
+    kneeL: { x: 174, y: 326 }, ankleL: { x: 148, y: 399 },
+    kneeR: { x: 236, y: 322 }, ankleR: { x: 270, y: 396 },
+  }, "side"),
 ];
 
 export const jointLabels: Record<JointName, string> = {
