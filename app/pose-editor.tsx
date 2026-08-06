@@ -18,6 +18,7 @@ import {
   type Pose,
   type PresetDefaults,
   type PoseView,
+  type SceneType,
 } from "./pose-data";
 
 const jointNames = Object.keys(jointLabels) as JointName[];
@@ -51,6 +52,10 @@ const itemOptions: { id: ItemType; label: string; short: string }[] = [
   { id: "pliers", label: "ペンチ", short: "Ｘ" },
   { id: "saw", label: "のこぎり", short: "▱" },
   { id: "brush", label: "ブラシ", short: "▥" },
+  { id: "cutter", label: "カッター", short: "▰" },
+  { id: "scissors", label: "ハサミ", short: "✂" },
+  { id: "remote", label: "操作リモコン", short: "▦" },
+  { id: "rag", label: "ウェス", short: "▱" },
 ];
 
 const initialStyle: FigureStyle = {
@@ -74,6 +79,10 @@ function defaultsToItems(defaults: PresetDefaults): HeldItems {
     left: defaults.leftItem ? { ...defaults.leftItem } : { ...emptyItems.left },
     right: defaults.rightItem ? { ...defaults.rightItem } : { ...emptyItems.right },
   };
+}
+
+function defaultsToScene(defaults: PresetDefaults): SceneType {
+  return defaults.scene ?? "none";
 }
 
 function midpoint(a: Point, b: Point): Point {
@@ -189,7 +198,99 @@ function ItemShape({ type }: { type: ItemType }) {
       </g>
     );
   }
+  if (type === "cutter") {
+    return (
+      <g>
+        <path d="M -18 -11 H 29 Q 36 -11 36 -4 V 8 Q 36 14 29 14 H -18 Q -25 14 -25 7 V -4 Q -25 -11 -18 -11 Z" fill="currentColor" />
+        <path d="M 35 -6 L 75 -3 L 68 8 L 35 10 Z" fill="#b7bdc0" stroke="currentColor" strokeWidth="3" />
+        <path d="M 48 -4 L 46 9 M 60 -3 L 57 8" stroke="#737a7d" strokeWidth="2" />
+        <rect x="2" y="-7" width="15" height="7" rx="3" fill="white" opacity=".82" />
+        <path d="M -16 7 H 25" stroke="white" strokeWidth="3" opacity=".55" />
+      </g>
+    );
+  }
+  if (type === "scissors") {
+    return (
+      <g>
+        <circle cx="-15" cy="-12" r="12" fill="none" stroke="currentColor" strokeWidth="7" />
+        <circle cx="-15" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="7" />
+        <circle cx="7" cy="2" r="7" fill="currentColor" /><circle cx="7" cy="2" r="2.5" fill="white" />
+        <path d="M 10 -1 L 65 -24 Q 72 -26 67 -18 L 14 7 Z" fill="#9ea5a8" stroke="currentColor" strokeWidth="3" />
+        <path d="M 10 5 L 65 27 Q 72 30 67 21 L 14 -2 Z" fill="#c3c8ca" stroke="currentColor" strokeWidth="3" />
+      </g>
+    );
+  }
+  if (type === "remote") {
+    return (
+      <g>
+        <path d="M 0 -30 V -46" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <rect x="-18" y="-31" width="36" height="67" rx="8" fill="currentColor" />
+        <rect x="-11" y="-23" width="22" height="12" rx="3" fill="white" opacity=".88" />
+        <circle cx="-7" cy="2" r="5" fill="#e44332" /><circle cx="7" cy="2" r="5" fill="#44a45c" />
+        <path d="M -7 18 L -7 29 M -12 23 H -2 M 7 29 V 18 M 2 23 H 12" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      </g>
+    );
+  }
+  if (type === "rag") {
+    return (
+      <g>
+        <path d="M -24 -12 Q -8 -23 5 -12 Q 20 -21 32 -8 Q 23 5 31 20 Q 12 28 -1 17 Q -14 28 -28 15 Q -20 1 -24 -12 Z" fill="#aeb5b8" stroke="currentColor" strokeWidth="4" />
+        <path d="M -13 -8 Q 0 0 17 -7 M -17 9 Q 1 16 20 7" fill="none" stroke="white" strokeWidth="3" opacity=".75" />
+      </g>
+    );
+  }
   return null;
+}
+
+function SceneLayer({ scene, pose, items }: { scene: SceneType; pose: Pose; items: HeldItems }) {
+  if (scene === "none") return null;
+  const toolHand: Hand = items.right.type !== "none" ? "right" : "left";
+  const wrist = toolHand === "right" ? pose.wristR : pose.wristL;
+  const tableX = Math.max(20, Math.min(210, wrist.x - 75));
+  const tableY = Math.min(285, wrist.y + 24);
+
+  if (scene === "overhead-crane") {
+    const hipMid = midpoint(pose.hipL, pose.hipR);
+    const facingRight = pose.head.x >= hipMid.x;
+    const hookX = facingRight ? 338 : 62;
+    return (
+      <g className="scene-layer" fill="none" stroke="#59615d" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M 24 34 H 376" strokeWidth="10" />
+        <rect x={hookX - 24} y="29" width="48" height="19" rx="4" fill="#59615d" stroke="none" />
+        <circle cx={hookX - 11} cy="50" r="5" fill="#111" stroke="none" /><circle cx={hookX + 11} cy="50" r="5" fill="#111" stroke="none" />
+        <path d={`M ${hookX} 48 V 106`} strokeWidth="5" />
+        <path d={`M ${hookX} 105 V 119 Q ${hookX} 139 ${hookX + (facingRight ? -18 : 18)} 139 Q ${hookX + (facingRight ? -31 : 31)} 139 ${hookX + (facingRight ? -31 : 31)} 125`} stroke="#111" strokeWidth="8" />
+        <path d={`M ${hookX + (facingRight ? -44 : 44)} 96 L ${hookX + (facingRight ? -57 : 57)} 87 M ${hookX + (facingRight ? -46 : 46)} 108 L ${hookX + (facingRight ? -62 : 62)} 108`} stroke="#9aa0a3" strokeWidth="4" />
+      </g>
+    );
+  }
+
+  const isScissors = scene === "scissor-table";
+  const isWiping = scene === "wiping-table";
+  return (
+    <g className="scene-layer" strokeLinecap="round" strokeLinejoin="round">
+      <rect x={tableX} y={tableY} width="170" height="13" rx="4" fill="#555d59" />
+      <path d={`M ${tableX + 18} ${tableY + 12} V 402 M ${tableX + 152} ${tableY + 12} V 402`} stroke="#555d59" strokeWidth="10" />
+      {!isWiping && (
+        <g>
+          <path
+            d={isScissors
+              ? `M ${tableX + 25} ${tableY - 13} H ${tableX + 140} L ${tableX + 128} ${tableY} H ${tableX + 25} Z`
+              : `M ${tableX + 25} ${tableY - 15} H ${tableX + 145} V ${tableY} H ${tableX + 25} Z`}
+            fill="#c1c7c3" stroke="#59615d" strokeWidth="3"
+          />
+          <path d={`M ${wrist.x + 18} ${tableY - 15} V ${tableY + 1}`} stroke="#d94b3d" strokeWidth="3" strokeDasharray="4 4" />
+        </g>
+      )}
+      {isWiping && (
+        <g fill="none" stroke="#87908b">
+          <path d={`M ${tableX + 32} ${tableY - 7} Q ${tableX + 50} ${tableY - 17} ${tableX + 69} ${tableY - 7}`} strokeWidth="4" strokeDasharray="5 6" />
+          <path d={`M ${wrist.x - 30} ${wrist.y - 18} Q ${wrist.x} ${wrist.y - 35} ${wrist.x + 30} ${wrist.y - 18}`} strokeWidth="4" />
+          <path d={`M ${wrist.x - 18} ${wrist.y - 27} L ${wrist.x - 27} ${wrist.y - 17} M ${wrist.x + 18} ${wrist.y - 27} L ${wrist.x + 27} ${wrist.y - 17}`} strokeWidth="4" />
+        </g>
+      )}
+    </g>
+  );
 }
 
 function HeldItemLayer({ pose, items }: { pose: Pose; items: HeldItems }) {
@@ -249,6 +350,7 @@ function Figure({
   view = "front",
   equipment = { helmet: false, harness: false },
   items = emptyItems,
+  scene = "none",
   editable = false,
   selected,
   onJointPointerDown,
@@ -258,6 +360,7 @@ function Figure({
   view?: PoseView;
   equipment?: Equipment;
   items?: HeldItems;
+  scene?: SceneType;
   editable?: boolean;
   selected?: JointName | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
@@ -275,6 +378,7 @@ function Figure({
 
   return (
     <>
+      <SceneLayer scene={scene} pose={pose} items={items} />
       <path opacity={rearOpacity} d={`M ${pose.shoulderL.x} ${pose.shoulderL.y} L ${pose.elbowL.x} ${pose.elbowL.y} L ${pose.wristL.x} ${pose.wristL.y}`} {...limbProps} />
       <path opacity={rearOpacity} d={`M ${pose.hipL.x} ${pose.hipL.y} L ${pose.kneeL.x} ${pose.kneeL.y} L ${pose.ankleL.x} ${pose.ankleL.y}`} {...limbProps} />
       <path d={`M ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.elbowR.x} ${pose.elbowR.y} L ${pose.wristR.x} ${pose.wristR.y}`} {...limbProps} />
@@ -345,6 +449,7 @@ export default function PoseEditor() {
   const [figureStyle, setFigureStyle] = useState(initialStyle);
   const [equipment, setEquipment] = useState<Equipment>(() => defaultsToEquipment(posePresets[0].defaults));
   const [items, setItems] = useState<HeldItems>(() => defaultsToItems(posePresets[0].defaults));
+  const [scene, setScene] = useState<SceneType>(() => defaultsToScene(posePresets[0].defaults));
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
@@ -373,6 +478,7 @@ export default function PoseEditor() {
     setView(preset.view);
     setEquipment(defaultsToEquipment(preset.defaults));
     setItems(defaultsToItems(preset.defaults));
+    setScene(defaultsToScene(preset.defaults));
     setSelectedJoint(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
@@ -557,6 +663,7 @@ export default function PoseEditor() {
                     style={{ ...initialStyle, strokeWidth: 25, headRadius: 30 }}
                     equipment={defaultsToEquipment(preset.defaults)}
                     items={defaultsToItems(preset.defaults)}
+                    scene={defaultsToScene(preset.defaults)}
                   />
                 </svg>
                 <span>{preset.name}</span>
@@ -578,7 +685,7 @@ export default function PoseEditor() {
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
