@@ -56,6 +56,14 @@ const itemOptions: { id: ItemType; label: string; short: string }[] = [
   { id: "scissors", label: "ハサミ", short: "✂" },
   { id: "remote", label: "操作リモコン", short: "▦" },
   { id: "rag", label: "ウェス", short: "▱" },
+  { id: "clipboard", label: "記録ボード", short: "▤" },
+  { id: "pen", label: "ペン", short: "╱" },
+  { id: "stopwatch", label: "ストップウォッチ", short: "◴" },
+  { id: "ruler", label: "定規", short: "▥" },
+  { id: "caliper", label: "ノギス", short: "⊢" },
+  { id: "welding-torch", label: "溶接トーチ", short: "⚡" },
+  { id: "inspection-hammer", label: "点検ハンマー", short: "┬" },
+  { id: "box", label: "段ボール箱", short: "□" },
 ];
 
 const initialStyle: FigureStyle = {
@@ -239,6 +247,87 @@ function ItemShape({ type }: { type: ItemType }) {
       </g>
     );
   }
+  if (type === "clipboard") {
+    return (
+      <g>
+        <rect x="-28" y="-39" width="56" height="78" rx="5" fill="#d9ddda" stroke="currentColor" strokeWidth="5" />
+        <rect x="-12" y="-45" width="24" height="13" rx="4" fill="currentColor" />
+        <path d="M -16 -20 H 16 M -16 -6 H 16 M -16 8 H 9 M -16 22 H 14" stroke="#707875" strokeWidth="4" strokeLinecap="round" />
+        <path d="M -20 -24 L -14 -18 L -6 -28" fill="none" stroke="#318456" strokeWidth="3" />
+      </g>
+    );
+  }
+  if (type === "pen") {
+    return (
+      <g>
+        <path d="M -18 16 L 31 -33" stroke="currentColor" strokeWidth="9" strokeLinecap="round" />
+        <path d="M 31 -33 L 41 -43 L 35 -27 Z" fill="#aeb5b8" stroke="currentColor" strokeWidth="3" />
+        <path d="M -19 16 L -26 26 L -12 20 Z" fill="currentColor" />
+        <path d="M -9 7 L 21 -23" stroke="white" strokeWidth="2.5" opacity=".7" />
+      </g>
+    );
+  }
+  if (type === "stopwatch") {
+    return (
+      <g>
+        <rect x="-9" y="-38" width="18" height="11" rx="3" fill="currentColor" />
+        <path d="M 14 -28 L 24 -37 M -14 -28 L -24 -37" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+        <circle cx="0" cy="0" r="30" fill="white" stroke="currentColor" strokeWidth="7" />
+        <circle cx="0" cy="0" r="4" fill="currentColor" />
+        <path d="M 0 0 L 0 -19 M 0 0 L 14 8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <path d="M -18 0 H -23 M 18 0 H 23 M 0 18 V 23" stroke="#727a76" strokeWidth="3" />
+      </g>
+    );
+  }
+  if (type === "ruler") {
+    return (
+      <g>
+        <rect x="-48" y="-10" width="96" height="20" rx="3" fill="#f0c94b" stroke="currentColor" strokeWidth="4" />
+        <path d="M -36 -9 V 2 M -24 -9 V 6 M -12 -9 V 2 M 0 -9 V 6 M 12 -9 V 2 M 24 -9 V 6 M 36 -9 V 2" stroke="currentColor" strokeWidth="3" />
+      </g>
+    );
+  }
+  if (type === "caliper") {
+    return (
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M -45 0 H 48" strokeWidth="7" />
+        <rect x="-8" y="-13" width="28" height="26" rx="3" fill="#b8bec0" strokeWidth="4" />
+        <path d="M -40 0 V 27 H -22 M 13 0 V 23 H 30 M -40 0 V -22 H -28 M 13 0 V -18 H 27" strokeWidth="6" />
+        <path d="M 22 -5 H 50 M 31 -5 V 7" strokeWidth="4" />
+      </g>
+    );
+  }
+  if (type === "welding-torch") {
+    return (
+      <g>
+        <path d="M -28 27 Q -12 10 -5 -5" fill="none" stroke="#3f4744" strokeWidth="9" strokeLinecap="round" />
+        <path d="M -8 2 L 8 -27 Q 12 -35 21 -30 L 31 -24 Q 38 -19 33 -11 L 15 17 Z" fill="currentColor" />
+        <path d="M 28 -16 L 51 -5" stroke="#777f7b" strokeWidth="7" strokeLinecap="round" />
+        <path d="M 51 -5 L 63 -1" stroke="#c8d0d1" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="68" cy="1" r="6" fill="#f4c542" /><circle cx="68" cy="1" r="3" fill="white" />
+      </g>
+    );
+  }
+  if (type === "inspection-hammer") {
+    return (
+      <g>
+        <path d="M -27 25 L 23 -25" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+        <path d="M 12 -35 H 43 Q 50 -35 50 -29 V -22 Q 50 -16 43 -16 H 12 Z" fill="currentColor" />
+        <circle cx="50" cy="-25" r="7" fill="#aeb5b8" stroke="currentColor" strokeWidth="3" />
+        <path d="M -21 19 L 17 -19" stroke="white" strokeWidth="2" opacity=".65" />
+      </g>
+    );
+  }
+  if (type === "box") {
+    return (
+      <g>
+        <rect x="-58" y="-44" width="116" height="88" rx="4" fill="#c89454" stroke="currentColor" strokeWidth="6" />
+        <path d="M 0 -43 V 44 M -58 -12 H 58" stroke="#936736" strokeWidth="4" />
+        <path d="M -21 -43 L -9 -12 H 9 L 21 -43" fill="#deb376" stroke="#936736" strokeWidth="3" />
+        <path d="M 25 14 H 46 M 25 24 H 42" stroke="#6f4c2b" strokeWidth="4" strokeLinecap="round" />
+      </g>
+    );
+  }
   return null;
 }
 
@@ -265,6 +354,44 @@ function SceneLayer({ scene, pose, items }: { scene: SceneType; pose: Pose; item
     );
   }
 
+  if (scene === "measuring-table") {
+    return (
+      <g className="scene-layer" strokeLinecap="round" strokeLinejoin="round">
+        <rect x={tableX} y={tableY} width="170" height="13" rx="4" fill="#555d59" />
+        <path d={`M ${tableX + 18} ${tableY + 12} V 402 M ${tableX + 152} ${tableY + 12} V 402`} stroke="#555d59" strokeWidth="10" />
+        <rect x={tableX + 24} y={tableY - 20} width="124" height="20" rx="3" fill="#c1c7c3" stroke="#59615d" strokeWidth="3" />
+        <path d={`M ${tableX + 26} ${tableY - 31} H ${tableX + 146} M ${tableX + 26} ${tableY - 37} V ${tableY - 25} M ${tableX + 146} ${tableY - 37} V ${tableY - 25}`} fill="none" stroke="#2f7f61" strokeWidth="3" />
+        <path d={`M ${tableX + 26} ${tableY - 31} l 9 -5 v 10 z M ${tableX + 146} ${tableY - 31} l -9 -5 v 10 z`} fill="#2f7f61" />
+      </g>
+    );
+  }
+
+  if (scene === "welding-table") {
+    return (
+      <g className="scene-layer" strokeLinecap="round" strokeLinejoin="round">
+        <rect x={tableX} y={tableY} width="170" height="14" rx="3" fill="#555d59" />
+        <path d={`M ${tableX + 18} ${tableY + 12} V 402 M ${tableX + 152} ${tableY + 12} V 402`} stroke="#555d59" strokeWidth="10" />
+        <path d={`M ${tableX + 28} ${tableY - 8} H ${tableX + 144} M ${tableX + 86} ${tableY - 8} V ${tableY - 42}`} stroke="#7a8280" strokeWidth="10" />
+        <circle cx={wrist.x + 70} cy={wrist.y + 3} r="7" fill="#fff3a8" stroke="#f0ad25" strokeWidth="4" />
+        <path d={`M ${wrist.x + 71} ${wrist.y - 9} L ${wrist.x + 77} ${wrist.y - 24} M ${wrist.x + 82} ${wrist.y - 3} L ${wrist.x + 98} ${wrist.y - 12} M ${wrist.x + 83} ${wrist.y + 8} L ${wrist.x + 99} ${wrist.y + 18} M ${wrist.x + 70} ${wrist.y + 14} L ${wrist.x + 75} ${wrist.y + 30}`} stroke="#f0ad25" strokeWidth="4" fill="none" />
+      </g>
+    );
+  }
+
+  if (scene === "impact-inspection") {
+    const targetX = Math.min(360, wrist.x + 54);
+    return (
+      <g className="scene-layer" strokeLinecap="round" strokeLinejoin="round">
+        <path d={`M ${targetX} 105 V 326 Q ${targetX} 342 ${targetX - 16} 342 H ${targetX - 38}`} fill="none" stroke="#737b78" strokeWidth="14" />
+        <path d={`M ${targetX - 12} 127 H ${targetX + 8} M ${targetX - 12} 305 H ${targetX + 8}`} stroke="#aeb5b2" strokeWidth="5" />
+        <circle cx={targetX - 6} cy={wrist.y} r="7" fill="#f0ad25" />
+        <path d={`M ${targetX + 5} ${wrist.y - 14} Q ${targetX + 22} ${wrist.y} ${targetX + 5} ${wrist.y + 14} M ${targetX + 16} ${wrist.y - 24} Q ${targetX + 43} ${wrist.y} ${targetX + 16} ${wrist.y + 24}`} fill="none" stroke="#6f8b9b" strokeWidth="4" />
+      </g>
+    );
+  }
+
+  if (scene === "box-carry") return null;
+
   const isScissors = scene === "scissor-table";
   const isWiping = scene === "wiping-table";
   return (
@@ -289,6 +416,33 @@ function SceneLayer({ scene, pose, items }: { scene: SceneType; pose: Pose; item
           <path d={`M ${wrist.x - 18} ${wrist.y - 27} L ${wrist.x - 27} ${wrist.y - 17} M ${wrist.x + 18} ${wrist.y - 27} L ${wrist.x + 27} ${wrist.y - 17}`} strokeWidth="4" />
         </g>
       )}
+    </g>
+  );
+}
+
+function SceneForeground({ scene, pose }: { scene: SceneType; pose: Pose }) {
+  if (scene === "box-carry") {
+    const center = midpoint(pose.wristL, pose.wristR);
+    return (
+      <g className="scene-layer">
+        <rect x={center.x - 68} y={center.y - 50} width="136" height="100" rx="5" fill="#c89454" stroke="#5d4228" strokeWidth="6" />
+        <path d={`M ${center.x} ${center.y - 49} V ${center.y + 50} M ${center.x - 68} ${center.y - 14} H ${center.x + 68}`} stroke="#936736" strokeWidth="4" />
+        <path d={`M ${center.x - 24} ${center.y - 49} L ${center.x - 10} ${center.y - 14} H ${center.x + 10} L ${center.x + 24} ${center.y - 49}`} fill="#deb376" stroke="#936736" strokeWidth="3" />
+        <path d={`M ${center.x + 28} ${center.y + 15} H ${center.x + 52} M ${center.x + 28} ${center.y + 27} H ${center.x + 47}`} stroke="#6f4c2b" strokeWidth="4" strokeLinecap="round" />
+      </g>
+    );
+  }
+  return null;
+}
+
+function SceneSafetyOverlay({ scene, pose }: { scene: SceneType; pose: Pose }) {
+  if (scene !== "welding-table") return null;
+  const { head } = pose;
+  return (
+    <g className="scene-layer" transform={`translate(${head.x + 9} ${head.y - 1}) rotate(8)`}>
+      <path d="M -29 -31 Q 3 -42 31 -24 L 28 27 Q 6 43 -25 28 Z" fill="#252b29" stroke="#111" strokeWidth="5" />
+      <rect x="-5" y="-18" width="31" height="20" rx="3" fill="#86a6ae" stroke="#111" strokeWidth="4" />
+      <path d="M 0 -13 H 21" stroke="white" strokeWidth="3" opacity=".65" />
     </g>
   );
 }
@@ -391,10 +545,12 @@ function Figure({
         strokeLinejoin="round"
       />
       <path d={`M ${pose.neck.x} ${pose.neck.y} L ${shoulderMid.x} ${shoulderMid.y + 3}`} {...limbProps} />
+      <SceneForeground scene={scene} pose={pose} />
       <circle cx={pose.wristL.x} cy={pose.wristL.y} r={style.strokeWidth * 0.58} fill={style.color} opacity={rearOpacity} />
       <circle cx={pose.wristR.x} cy={pose.wristR.y} r={style.strokeWidth * 0.58} fill={style.color} />
       <circle cx={pose.head.x} cy={pose.head.y} r={style.headRadius} fill={style.color} />
       <EquipmentLayer pose={pose} style={style} equipment={equipment} />
+      <SceneSafetyOverlay scene={scene} pose={pose} />
       <HeldItemLayer pose={pose} items={items} />
 
       {editable && jointNames.map((joint) => (
