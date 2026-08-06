@@ -13,8 +13,10 @@ import {
   jointLabels,
   posePresets,
   type JointName,
+  type ItemType,
   type Point,
   type Pose,
+  type PresetDefaults,
   type PoseView,
 } from "./pose-data";
 
@@ -33,24 +35,27 @@ type Equipment = {
   harness: boolean;
 };
 
-type ItemType = "none" | "wrench" | "screwdriver" | "hammer" | "drill" | "sprayer" | "hose";
 type Hand = "left" | "right";
 type HeldItem = { type: ItemType; rotation: number; scale: number };
 type HeldItems = Record<Hand, HeldItem>;
 
 const itemOptions: { id: ItemType; label: string; short: string }[] = [
   { id: "none", label: "なし", short: "－" },
-  { id: "wrench", label: "スパナ", short: "🔧" },
+  { id: "wrench", label: "スパナ", short: "◆" },
   { id: "screwdriver", label: "ドライバー", short: "⊣" },
   { id: "hammer", label: "ハンマー", short: "Ｔ" },
   { id: "drill", label: "電動ドリル", short: "▰" },
-  { id: "sprayer", label: "スプレー", short: "⌁" },
+  { id: "sprayer", label: "噴霧器", short: "⌁" },
   { id: "hose", label: "散水ノズル", short: "≋" },
+  { id: "flashlight", label: "ライト", short: "◖" },
+  { id: "pliers", label: "ペンチ", short: "Ｘ" },
+  { id: "saw", label: "のこぎり", short: "▱" },
+  { id: "brush", label: "ブラシ", short: "▥" },
 ];
 
 const initialStyle: FigureStyle = {
   color: "#111111",
-  strokeWidth: 20,
+  strokeWidth: 22,
   headRadius: 28,
   background: "transparent",
 };
@@ -60,6 +65,17 @@ const emptyItems: HeldItems = {
   right: { type: "none", rotation: 10, scale: 1 },
 };
 
+function defaultsToEquipment(defaults: PresetDefaults): Equipment {
+  return { helmet: Boolean(defaults.helmet), harness: Boolean(defaults.harness) };
+}
+
+function defaultsToItems(defaults: PresetDefaults): HeldItems {
+  return {
+    left: defaults.leftItem ? { ...defaults.leftItem } : { ...emptyItems.left },
+    right: defaults.rightItem ? { ...defaults.rightItem } : { ...emptyItems.right },
+  };
+}
+
 function midpoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
@@ -68,56 +84,108 @@ function ItemShape({ type }: { type: ItemType }) {
   if (type === "wrench") {
     return (
       <g>
-        <path d="M -3 7 L 25 -21" fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" />
-        <path d="M 18 -27 L 29 -35 L 35 -25 L 29 -20 Z" fill="currentColor" />
-        <circle cx="-6" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="5" />
+        <path d="M -8 8 L 23 -23" fill="none" stroke="currentColor" strokeWidth="11" strokeLinecap="round" />
+        <path d="M 17 -28 Q 24 -41 39 -37 L 30 -28 L 38 -20 Q 26 -15 17 -22 Z" fill="currentColor" />
+        <circle cx="-9" cy="9" r="9" fill="currentColor" />
+        <circle cx="-9" cy="9" r="4" fill="white" />
       </g>
     );
   }
   if (type === "screwdriver") {
     return (
       <g>
-        <path d="M 0 5 L 33 -28" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
-        <path d="M 31 -31 L 39 -39" stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
-        <rect x="-12" y="-1" width="23" height="14" rx="7" transform="rotate(-45)" fill="#f05a28" stroke="currentColor" strokeWidth="3" />
+        <path d="M 6 2 L 39 -31" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <path d="M 37 -33 L 45 -41 M 39 -39 L 44 -34" stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
+        <path d="M -12 8 Q -18 2 -12 -5 L -1 -16 Q 4 -21 10 -15 L 18 -7 Q 22 -3 17 3 L 4 16 Q -1 21 -7 15 Z" fill="currentColor" />
+        <path d="M -7 1 L 5 13 M -1 -6 L 11 6" stroke="white" strokeWidth="2.5" opacity=".75" />
       </g>
     );
   }
   if (type === "hammer") {
     return (
       <g>
-        <path d="M -2 7 L 25 -24" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-        <path d="M 15 -34 L 37 -16" stroke="currentColor" strokeWidth="13" strokeLinecap="round" />
+        <path d="M -6 13 L 24 -22" stroke="currentColor" strokeWidth="9" strokeLinecap="round" />
+        <path d="M 12 -34 L 36 -14 Q 40 -10 36 -6 L 31 -2 L 3 -26 Z" fill="currentColor" />
+        <path d="M 30 -11 L 44 -22 L 36 -29 L 24 -17" fill="currentColor" />
+        <path d="M -2 8 L 20 -18" stroke="white" strokeWidth="2" opacity=".55" />
       </g>
     );
   }
   if (type === "drill") {
     return (
       <g>
-        <path d="M -5 -12 H 23 Q 33 -12 33 -2 V 9 H 3 Q -5 9 -5 1 Z" fill="currentColor" />
-        <path d="M 6 7 L 17 7 L 12 29 L 1 29 Z" fill="currentColor" />
-        <path d="M 33 -3 H 47" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+        <path d="M -12 -18 H 20 Q 31 -18 35 -8 L 38 4 H 7 L 3 13 H -12 Q -19 13 -19 5 V -10 Q -19 -18 -12 -18 Z" fill="currentColor" />
+        <path d="M 2 9 H 19 L 15 35 H -2 L -7 28 Z" fill="currentColor" />
+        <rect x="-6" y="31" width="25" height="9" rx="3" fill="currentColor" />
+        <path d="M 38 -5 H 48 L 54 1 L 48 7 H 38 Z" fill="currentColor" />
+        <path d="M 53 1 H 75" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <path d="M 70 -3 L 78 1 L 70 5" fill="currentColor" />
+        <path d="M -6 -11 H 15 M -6 -5 H 10" stroke="white" strokeWidth="3" opacity=".75" />
+        <circle cx="25" cy="-4" r="5" fill="white" opacity=".8" />
       </g>
     );
   }
   if (type === "sprayer") {
     return (
       <g>
-        <path d="M -7 3 Q -7 -5 1 -5 H 18 L 22 26 Q 23 34 14 34 H -2 Q -10 34 -9 26 Z" fill="#5aa9e6" stroke="currentColor" strokeWidth="4" />
-        <path d="M 0 -6 V -15 H 27 L 34 -10 L 22 -5" fill="none" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
-        <circle cx="43" cy="-12" r="2.8" fill="#3699dd" />
-        <circle cx="50" cy="-18" r="2.3" fill="#3699dd" />
-        <circle cx="52" cy="-8" r="2.5" fill="#3699dd" />
+        <path d="M -12 2 Q -12 -6 -4 -6 H 18 L 24 29 Q 26 39 16 39 H -3 Q -14 39 -13 29 Z" fill="currentColor" />
+        <path d="M -5 4 H 17 L 20 28 H -9 Z" fill="white" opacity=".72" />
+        <path d="M -3 -8 V -19 H 25 L 35 -13 L 24 -6 H 9" fill="none" stroke="currentColor" strokeWidth="7" strokeLinejoin="round" />
+        <path d="M 10 -15 L 29 -4" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <path d="M 40 -16 Q 50 -24 60 -22 M 42 -10 Q 54 -14 65 -9 M 41 -4 Q 52 0 61 7" fill="none" stroke="#238dcc" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="67" cy="-21" r="3" fill="#238dcc" /><circle cx="72" cy="-8" r="3" fill="#238dcc" /><circle cx="67" cy="8" r="3" fill="#238dcc" />
       </g>
     );
   }
   if (type === "hose") {
     return (
       <g>
-        <path d="M -8 12 Q 4 0 13 -11" fill="none" stroke="#2486c5" strokeWidth="10" strokeLinecap="round" />
-        <path d="M 10 -15 L 29 -31" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
-        <path d="M 31 -34 L 39 -40" stroke="#2486c5" strokeWidth="6" strokeLinecap="round" />
-        <path d="M 44 -43 L 60 -50 M 47 -37 L 65 -39 M 44 -31 L 60 -26" stroke="#5ab9ee" strokeWidth="4" strokeLinecap="round" />
+        <path d="M -16 24 Q -10 8 4 2" fill="none" stroke="#238dcc" strokeWidth="9" strokeLinecap="round" />
+        <path d="M -1 6 L 9 -17 Q 12 -23 19 -20 L 39 -10 L 30 8 L 11 1 L 6 11 Z" fill="currentColor" />
+        <path d="M 15 -10 L 28 -4" stroke="white" strokeWidth="4" strokeLinecap="round" opacity=".75" />
+        <path d="M 37 -11 L 48 -8 L 44 3 L 32 1 Z" fill="currentColor" />
+        <path d="M 48 -6 Q 59 -10 68 -6 M 49 0 Q 61 0 72 5 M 46 6 Q 57 10 66 18" fill="none" stroke="#238dcc" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="75" cy="5" r="3.5" fill="#238dcc" /><circle cx="70" cy="20" r="3.5" fill="#238dcc" />
+      </g>
+    );
+  }
+  if (type === "flashlight") {
+    return (
+      <g>
+        <path d="M -15 -10 H 15 L 28 -19 V 19 L 15 10 H -15 Q -22 10 -22 3 V -3 Q -22 -10 -15 -10 Z" fill="currentColor" />
+        <path d="M -12 -5 H 12 V 5 H -12 Z" fill="white" opacity=".65" />
+        <path d="M 30 -17 L 66 -29 L 66 29 L 30 17 Z" fill="#f6d75d" opacity=".45" />
+        <path d="M 31 -10 L 56 -16 M 31 10 L 56 16" stroke="#e8b927" strokeWidth="3" />
+      </g>
+    );
+  }
+  if (type === "pliers") {
+    return (
+      <g>
+        <path d="M 3 1 L -17 31 M 7 5 L 28 29" stroke="currentColor" strokeWidth="10" strokeLinecap="round" />
+        <circle cx="5" cy="3" r="8" fill="currentColor" /><circle cx="5" cy="3" r="3" fill="white" />
+        <path d="M 1 -2 L -15 -30 L -4 -39 L 8 -12 L 18 -39 L 29 -30 L 10 -1 Z" fill="currentColor" />
+        <path d="M -9 -31 L -2 -35 M 22 -31 L 15 -35" stroke="white" strokeWidth="2.5" />
+      </g>
+    );
+  }
+  if (type === "saw") {
+    return (
+      <g>
+        <path d="M -18 13 Q -28 4 -18 -7 L -5 -19 Q 4 -27 14 -18 L 22 -10 L 9 3 L 2 -4 L -8 6 L 0 14 Z" fill="currentColor" />
+        <path d="M 8 7 L 61 -27 L 70 -18 L 22 22 Z" fill="currentColor" />
+        <path d="M 18 19 L 22 28 L 29 20 L 34 24 L 40 15 L 45 18 L 51 8" fill="currentColor" />
+        <path d="M -10 -5 Q -2 -13 5 -7 L 10 -2 L 1 7 Z" fill="white" opacity=".8" />
+      </g>
+    );
+  }
+  if (type === "brush") {
+    return (
+      <g>
+        <path d="M -13 17 L 30 -25" stroke="currentColor" strokeWidth="9" strokeLinecap="round" />
+        <path d="M 20 -34 L 42 -13 L 29 1 L 6 -21 Z" fill="currentColor" />
+        <path d="M 34 -13 L 47 0 M 29 -8 L 42 5 M 24 -3 L 37 10" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <path d="M -8 12 L 25 -20" stroke="white" strokeWidth="2" opacity=".55" />
       </g>
     );
   }
@@ -134,7 +202,7 @@ function HeldItemLayer({ pose, items }: { pose: Pose; items: HeldItems }) {
         return (
           <g
             key={hand}
-            color="#26352d"
+            color="#111111"
             transform={`translate(${wrist.x} ${wrist.y}) rotate(${item.rotation}) scale(${item.scale})`}
           >
             <ItemShape type={item.type} />
@@ -152,22 +220,23 @@ function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureS
   return (
     <>
       {equipment.harness && (
-        <g className="equipment-layer" fill="none" stroke="#f05a28" strokeWidth={Math.max(5, style.strokeWidth * 0.3)} strokeLinecap="round" strokeLinejoin="round">
+        <g className="equipment-layer" fill="none" stroke="#9aa0a3" strokeWidth={Math.max(6, style.strokeWidth * 0.32)} strokeLinecap="round" strokeLinejoin="round">
           <path d={`M ${pose.shoulderL.x} ${pose.shoulderL.y + 5} L ${hipMid.x + 11} ${hipMid.y - 4} L ${pose.shoulderR.x} ${pose.shoulderR.y + 5}`} />
           <path d={`M ${pose.shoulderR.x} ${pose.shoulderR.y + 5} L ${hipMid.x - 11} ${hipMid.y - 4} L ${pose.shoulderL.x} ${pose.shoulderL.y + 5}`} />
           <path d={`M ${pose.hipL.x - 3} ${pose.hipL.y - 8} L ${pose.hipR.x + 3} ${pose.hipR.y - 8}`} />
           <path d={`M ${pose.hipL.x} ${pose.hipL.y - 4} Q ${pose.hipL.x - 13} ${pose.hipL.y + 24} ${pose.hipL.x + 3} ${pose.hipL.y + 36}`} />
           <path d={`M ${pose.hipR.x} ${pose.hipR.y - 4} Q ${pose.hipR.x + 13} ${pose.hipR.y + 24} ${pose.hipR.x - 3} ${pose.hipR.y + 36}`} />
-          <circle cx={shoulderMid.x} cy={(shoulderMid.y + hipMid.y) / 2} r="5" fill="#f05a28" />
+          <circle cx={shoulderMid.x} cy={(shoulderMid.y + hipMid.y) / 2} r="5" fill="#9aa0a3" stroke="#6f7679" strokeWidth="2" />
         </g>
       )}
       {equipment.helmet && (
-        <g className="equipment-layer" stroke="#26352d" strokeWidth="4" strokeLinejoin="round">
+        <g className="equipment-layer" stroke="#111111" strokeWidth="4" strokeLinejoin="round">
           <path
             d={`M ${head.x - style.headRadius - 4} ${head.y - 4} Q ${head.x - style.headRadius + 2} ${head.y - style.headRadius - 27} ${head.x} ${head.y - style.headRadius - 29} Q ${head.x + style.headRadius - 1} ${head.y - style.headRadius - 24} ${head.x + style.headRadius + 4} ${head.y - 2} Z`}
-            fill="#f6c945"
+            fill="#111111"
           />
           <path d={`M ${head.x - style.headRadius - 11} ${head.y - 2} H ${head.x + style.headRadius + 13}`} strokeLinecap="round" />
+          <path d={`M ${head.x - style.headRadius + 1} ${head.y - 7} Q ${head.x} ${head.y - 14} ${head.x + style.headRadius - 1} ${head.y - 7}`} fill="none" stroke="white" strokeWidth="3" opacity=".8" />
         </g>
       )}
     </>
@@ -214,6 +283,7 @@ function Figure({
         d={`M ${pose.shoulderL.x} ${pose.shoulderL.y} Q ${shoulderMid.x} ${shoulderMid.y - 5} ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.hipR.x} ${pose.hipR.y} Q ${hipMid.x} ${hipMid.y + 4} ${pose.hipL.x} ${pose.hipL.y} Z`}
         fill={style.color}
         stroke={style.color}
+        strokeWidth={style.strokeWidth * 0.72}
         strokeLinejoin="round"
       />
       <path d={`M ${pose.neck.x} ${pose.neck.y} L ${shoulderMid.x} ${shoulderMid.y + 3}`} {...limbProps} />
@@ -273,8 +343,8 @@ export default function PoseEditor() {
   const [pose, setPose] = useState<Pose>(() => clonePose(posePresets[0].pose));
   const [view, setView] = useState<PoseView>(posePresets[0].view);
   const [figureStyle, setFigureStyle] = useState(initialStyle);
-  const [equipment, setEquipment] = useState<Equipment>({ helmet: false, harness: false });
-  const [items, setItems] = useState<HeldItems>(emptyItems);
+  const [equipment, setEquipment] = useState<Equipment>(() => defaultsToEquipment(posePresets[0].defaults));
+  const [items, setItems] = useState<HeldItems>(() => defaultsToItems(posePresets[0].defaults));
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
@@ -285,7 +355,11 @@ export default function PoseEditor() {
   const dragging = useRef<{ joint: JointName; before: Pose } | null>(null);
 
   const visiblePresets = useMemo(
-    () => posePresets.filter((preset) => category === "すべて" || preset.category === category),
+    () => posePresets.filter((preset) => {
+      if (category === "すべて") return true;
+      if (category === "横向き") return preset.view === "side";
+      return preset.category === category;
+    }),
     [category],
   );
 
@@ -297,6 +371,8 @@ export default function PoseEditor() {
     setPresetId(id);
     setPose(clonePose(preset.pose));
     setView(preset.view);
+    setEquipment(defaultsToEquipment(preset.defaults));
+    setItems(defaultsToItems(preset.defaults));
     setSelectedJoint(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
@@ -475,7 +551,13 @@ export default function PoseEditor() {
             {visiblePresets.map((preset) => (
               <button key={preset.id} className={`preset-card ${presetId === preset.id ? "active" : ""}`} onClick={() => loadPreset(preset.id)} aria-pressed={presetId === preset.id}>
                 <svg viewBox="0 0 400 440" aria-hidden="true">
-                  <Figure pose={preset.pose} view={preset.view} style={{ ...initialStyle, strokeWidth: 25, headRadius: 30 }} />
+                  <Figure
+                    pose={preset.pose}
+                    view={preset.view}
+                    style={{ ...initialStyle, strokeWidth: 25, headRadius: 30 }}
+                    equipment={defaultsToEquipment(preset.defaults)}
+                    items={defaultsToItems(preset.defaults)}
+                  />
                 </svg>
                 <span>{preset.name}</span>
               </button>
