@@ -30,6 +30,14 @@ npm run dev
 npm run build
 ```
 
+Cloudflare Workersへのデプロイ：
+
+```bash
+npm run deploy
+```
+
+Worker名、静的ファイルの出力先、互換日付は `wrangler.jsonc` で固定しています。Cloudflare Workers Buildsでは、Build commandを `npm run build`、Deploy commandを `npm run deploy`、Root directoryを `/` に設定します。
+
 ## Cloudflare公開方針
 
 Next.jsアプリとしてCloudflare Workersへ配置する。GitHubにリポジトリを作成後、Cloudflare Dashboardの **Workers & Pages → Create application → Import a repository** から接続し、mainブランチの更新を自動公開する。
