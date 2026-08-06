@@ -18,7 +18,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  font-family: var(--font-geist-sans), "Noto Sans JP", "Yu Gothic UI", sans-serif;
 }
 
 button, input { font: inherit; }
@@ -62,7 +62,7 @@ button { color: inherit; }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(460px, 1fr) minmax(250px, 300px);
+  grid-template-columns: minmax(260px, 320px) minmax(440px, 1fr) minmax(310px, 350px);
   max-width: 1680px;
   min-height: calc(100vh - 140px);
   margin: 0 auto;
@@ -70,7 +70,7 @@ button { color: inherit; }
 
 .panel { background: var(--panel); }
 .preset-panel { border-right: 1px solid var(--line); }
-.settings-panel { border-left: 1px solid var(--line); }
+.settings-panel { max-height: calc(100vh - 92px); overflow-y: auto; border-left: 1px solid var(--line); }
 .editor-panel { display: flex; min-width: 0; flex-direction: column; background: #f0f3ef; }
 
 .panel-heading {
@@ -170,6 +170,21 @@ button { color: inherit; }
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
 }
 .canvas-wrap.white { background: #fff; }
+.view-badge {
+  position: absolute;
+  top: 13px;
+  left: 14px;
+  z-index: 1;
+  padding: 6px 9px;
+  border: 1px solid rgba(25, 40, 30, .12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .88);
+  color: #5a675d;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  backdrop-filter: blur(8px);
+}
 .editor-canvas { display: block; width: min(72%, 430px); max-height: 520px; touch-action: none; overflow: visible; }
 .joint-handle {
   fill: #fff;
@@ -216,10 +231,56 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .segmented { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 9px; background: #edf0ed; }
 .segmented button { min-height: 32px; border: 0; border-radius: 7px; background: transparent; color: #68756d; font-size: 10px; font-weight: 700; cursor: pointer; }
 .segmented button.active { background: #fff; color: var(--ink); box-shadow: 0 2px 7px rgba(25, 40, 30, .08); }
+.option-stack { display: grid; gap: 8px; }
+.option-toggle {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fafbfa;
+  text-align: left;
+  cursor: pointer;
+}
+.option-toggle.active { border-color: var(--ink); background: #f4ffd0; }
+.option-toggle > span:nth-child(2) strong { display: block; font-size: 10px; }
+.option-toggle > span:nth-child(2) small { display: block; margin-top: 2px; color: #7b867e; font-size: 8px; }
+.option-toggle i { padding: 4px 6px; border-radius: 5px; background: #e7ece8; color: #6c776e; font-size: 8px; font-style: normal; font-weight: 900; }
+.option-toggle.active i { background: var(--ink); color: var(--accent); }
+.option-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: #fff; box-shadow: inset 0 0 0 1px #d9e0db; }
+.helmet-icon::before { content: ""; width: 23px; height: 13px; border: 2px solid #26352d; border-radius: 14px 14px 3px 3px; background: #f6c945; }
+.harness-icon { color: #f05a28; font-size: 17px; font-weight: 900; }
+.hand-select { margin-bottom: 10px; }
+.item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.item-button {
+  display: grid;
+  min-height: 52px;
+  place-items: center;
+  padding: 5px 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fafbfa;
+  color: #56625a;
+  font-size: 8px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.item-button span { color: var(--ink); font-size: 17px; line-height: 1; }
+.item-button.active { border: 2px solid var(--ink); background: #f4ffd0; color: var(--ink); }
+.item-adjust { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 12px; padding-top: 11px; border-top: 1px dashed #d7ded9; }
+.item-adjust label { margin: 5px 0 0; }
+.item-adjust input[type="range"] { width: 100%; accent-color: var(--ink); }
+.compact-style-group { display: grid; gap: 7px; }
+.compact-style-group > label { margin-top: 7px; margin-bottom: 3px; }
+.compact-style-group > label:first-child { margin-top: 0; }
 .selected-joint { margin: 18px 19px 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfa; }
 .selected-joint p { margin: 0 0 7px; color: #7b867e; font-size: 9px; font-weight: 700; }
 .selected-joint strong { display: block; font-size: 15px; }
-.selected-joint span { display: block; margin-top: 4px; color: #88928a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; }
+.selected-joint span { display: block; margin-top: 4px; color: #88928a; font-family: var(--font-geist-mono); font-size: 9px; }
 .privacy-note { display: flex; gap: 10px; margin: 14px 19px 0; padding: 13px; border-radius: 11px; background: #f3ffd0; }
 .privacy-note > span { display: grid; flex: 0 0 auto; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: var(--ink); color: var(--accent); font-size: 10px; }
 .privacy-note p { margin: 0; color: #596259; font-size: 9px; line-height: 1.55; }
@@ -234,7 +295,7 @@ button:focus-visible, input:focus-visible, .joint-handle:focus-visible { outline
   .topbar { grid-template-columns: 1fr auto; }
   .header-copy { display: none; }
   .workspace { grid-template-columns: 250px minmax(420px, 1fr); }
-  .settings-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-left: 0; }
+  .settings-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); max-height: none; overflow: visible; border-top: 1px solid var(--line); border-left: 0; }
   .settings-panel .panel-heading { grid-column: 1 / -1; }
   .selected-joint, .privacy-note { align-self: center; }
   .canvas-wrap { width: min(82%, 620px); }
@@ -261,6 +322,12 @@ button:focus-visible, input:focus-visible, .joint-handle:focus-visible { outline
   .settings-panel .panel-heading { grid-column: 1 / -1; }
   .selected-joint, .privacy-note { margin: 14px; }
   footer { flex-direction: column; }
+}
+
+@media (max-width: 520px) {
+  .settings-panel { display: block; }
+  .settings-panel .panel-heading { display: flex; }
+  .item-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
