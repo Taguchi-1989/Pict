@@ -458,7 +458,7 @@ function SceneSafetyOverlay({ scene, pose }: { scene: SceneType; pose: Pose }) {
   if (scene !== "welding-table") return null;
   const { head } = pose;
   return (
-    <g className="scene-layer" transform={`translate(${head.x + 9} ${head.y - 1}) rotate(8)`}>
+    <g className="scene-layer figure-attached" transform={`translate(${head.x + 9} ${head.y - 1}) rotate(8)`}>
       <path d="M -29 -31 Q 3 -42 31 -24 L 28 27 Q 6 43 -25 28 Z" fill="#252b29" stroke="#111" strokeWidth="5" />
       <rect x="-5" y="-18" width="31" height="20" rx="3" fill="#86a6ae" stroke="#111" strokeWidth="4" />
       <path d="M 0 -13 H 21" stroke="white" strokeWidth="3" opacity=".65" />
@@ -518,6 +518,28 @@ function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureS
   );
 }
 
+function FloorGridLayer() {
+  // 30°勾配（dy70 / dx121）の2方向ラインでアイソメ風の床帯を描く
+  const xs = Array.from({ length: 13 }, (_, i) => -140 + i * 44);
+  return (
+    <g className="floor-layer" fill="none" stroke="var(--secondary-color)" strokeWidth="1.5" opacity="0.45">
+      {xs.map((x) => (
+        <path key={`a${x}`} d={`M ${x} 435 L ${x + 121} 365`} />
+      ))}
+      {xs.map((x) => (
+        <path key={`b${x}`} d={`M ${x} 365 L ${x + 121} 435`} />
+      ))}
+    </g>
+  );
+}
+
+function GroundShadowLayer({ pose }: { pose: Pose }) {
+  const cx = (pose.ankleL.x + pose.ankleR.x) / 2;
+  const cy = Math.min(430, Math.max(pose.ankleL.y, pose.ankleR.y) + 13);
+  const rx = Math.max(46, Math.min(150, Math.abs(pose.ankleL.x - pose.ankleR.x) / 2 + 30));
+  return <ellipse className="shadow-layer" cx={cx} cy={cy} rx={rx} ry="11" fill="var(--secondary-color)" opacity="0.3" />;
+}
+
 function Figure({
   pose,
   style,
@@ -526,6 +548,8 @@ function Figure({
   items = emptyItems,
   scene = "none",
   showTable = true,
+  groundShadow = false,
+  floorGrid = false,
   editable = false,
   selected,
   onJointPointerDown,
@@ -537,6 +561,8 @@ function Figure({
   items?: HeldItems;
   scene?: SceneType;
   showTable?: boolean;
+  groundShadow?: boolean;
+  floorGrid?: boolean;
   editable?: boolean;
   selected?: JointName | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
@@ -559,7 +585,9 @@ function Figure({
 
   return (
     <g className="figure-root" style={figureVariables}>
+      {floorGrid && <FloorGridLayer />}
       <SceneLayer scene={scene} pose={pose} items={items} showTable={showTable} />
+      {groundShadow && <GroundShadowLayer pose={pose} />}
       <path opacity={rearOpacity} d={`M ${pose.shoulderL.x} ${pose.shoulderL.y} L ${pose.elbowL.x} ${pose.elbowL.y} L ${pose.wristL.x} ${pose.wristL.y}`} {...limbProps} />
       <path opacity={rearOpacity} d={`M ${pose.hipL.x} ${pose.hipL.y} L ${pose.kneeL.x} ${pose.kneeL.y} L ${pose.ankleL.x} ${pose.ankleL.y}`} {...limbProps} />
       <path d={`M ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.elbowR.x} ${pose.elbowR.y} L ${pose.wristR.x} ${pose.wristR.y}`} {...limbProps} />
@@ -596,9 +624,14 @@ function Figure({
   );
 }
 
-function serializeSvg(source: SVGSVGElement, style: FigureStyle) {
+type ExportScope = "full" | "figure";
+
+function serializeSvg(source: SVGSVGElement, style: FigureStyle, pose: Pose, scope: ExportScope) {
   const root = source.cloneNode(true) as SVGSVGElement;
   root.querySelectorAll(".editor-only").forEach((node) => node.remove());
+  if (scope === "figure") {
+    root.querySelectorAll(".scene-layer:not(.figure-attached), .floor-layer").forEach((node) => node.remove());
+  }
   root.classList.remove("editor-canvas");
   root.removeAttribute("style");
   root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -607,6 +640,12 @@ function serializeSvg(source: SVGSVGElement, style: FigureStyle) {
   root.setAttribute("height", "440");
   root.setAttribute("role", "img");
   root.setAttribute("aria-label", "編集したピクトグラム");
+  const anchor = (point: Point) => `${Math.round(point.x)},${Math.round(point.y)}`;
+  root.setAttribute("data-floor-y", "398");
+  root.setAttribute("data-anchor-head", anchor(pose.head));
+  root.setAttribute("data-anchor-wrist-left", anchor(pose.wristL));
+  root.setAttribute("data-anchor-wrist-right", anchor(pose.wristR));
+  root.setAttribute("data-anchor-hip-center", anchor(midpoint(pose.hipL, pose.hipR)));
   const secondaryColor = style.colorMode === "mono" ? style.color : style.secondaryColor;
   root.querySelectorAll<SVGElement>(".scene-layer, .scene-layer *").forEach((node) => {
     const fill = node.getAttribute("fill");
@@ -643,6 +682,9 @@ export default function PoseEditor() {
   const [items, setItems] = useState<HeldItems>(() => defaultsToItems(posePresets[0].defaults));
   const [scene, setScene] = useState<SceneType>(() => defaultsToScene(posePresets[0].defaults));
   const [showTable, setShowTable] = useState(true);
+  const [groundShadow, setGroundShadow] = useState(false);
+  const [floorGrid, setFloorGrid] = useState(false);
+  const [exportScope, setExportScope] = useState<ExportScope>("full");
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
@@ -763,13 +805,15 @@ export default function PoseEditor() {
 
   const reset = () => loadPreset(presetId);
 
-  const getSvg = () => svgRef.current ? serializeSvg(svgRef.current, figureStyle) : null;
+  const getSvg = () => svgRef.current ? serializeSvg(svgRef.current, figureStyle, pose, exportScope) : null;
+
+  const exportSuffix = exportScope === "figure" ? "-figure" : "";
 
   const downloadSvg = () => {
     const svg = getSvg();
     if (!svg) return;
-    downloadBlob(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), `pictogram-${presetId}.svg`);
-    setNotice("保護具・道具を含むSVGをダウンロードしました");
+    downloadBlob(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), `pictogram-${presetId}${exportSuffix}.svg`);
+    setNotice(exportScope === "figure" ? "人物のみのSVGをダウンロードしました（アンカー座標つき）" : "保護具・道具を含むSVGをダウンロードしました");
   };
 
   const downloadPng = () => {
@@ -784,7 +828,7 @@ export default function PoseEditor() {
       const context = canvas.getContext("2d");
       if (!context) return;
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => blob && downloadBlob(blob, `pictogram-${presetId}.png`), "image/png");
+      canvas.toBlob((blob) => blob && downloadBlob(blob, `pictogram-${presetId}${exportSuffix}.png`), "image/png");
       URL.revokeObjectURL(url);
       setNotice("保護具・道具を含む高解像度PNGをダウンロードしました");
     };
@@ -880,7 +924,7 @@ export default function PoseEditor() {
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
@@ -913,6 +957,23 @@ export default function PoseEditor() {
                 <i>{showTable && sceneHasTable(scene) ? "ON" : "OFF"}</i>
               </button>
             </div>
+          </div>
+
+          <div className="setting-group depth-group">
+            <label>奥行き表現 <strong>アイソメ合成用</strong></label>
+            <div className="option-stack">
+              <button className={groundShadow ? "option-toggle active" : "option-toggle"} onClick={() => setGroundShadow((current) => !current)} aria-pressed={groundShadow}>
+                <span className="option-icon shadow-icon" aria-hidden="true" />
+                <span><strong>接地影</strong><small>{groundShadow ? "表示中" : "非表示"}</small></span>
+                <i>{groundShadow ? "ON" : "OFF"}</i>
+              </button>
+              <button className={floorGrid ? "option-toggle active" : "option-toggle"} onClick={() => setFloorGrid((current) => !current)} aria-pressed={floorGrid}>
+                <span className="option-icon grid-icon" aria-hidden="true" />
+                <span><strong>床グリッド</strong><small>{floorGrid ? "表示中（アイソメ風）" : "非表示"}</small></span>
+                <i>{floorGrid ? "ON" : "OFF"}</i>
+              </button>
+            </div>
+            <a className="template-link" href="/work-template-iso.svg" download>ワーク用アイソメテンプレSVGをダウンロード</a>
           </div>
 
           <div className="setting-group item-group">
@@ -970,6 +1031,11 @@ export default function PoseEditor() {
             <div className="segmented">
               <button className={figureStyle.background === "transparent" ? "active" : ""} onClick={() => setFigureStyle((current) => ({ ...current, background: "transparent" }))}>透明</button>
               <button className={figureStyle.background === "white" ? "active" : ""} onClick={() => setFigureStyle((current) => ({ ...current, background: "white" }))}>白</button>
+            </div>
+            <label>書き出し範囲 <strong>ワーク自作時は人物のみ</strong></label>
+            <div className="segmented">
+              <button className={exportScope === "full" ? "active" : ""} onClick={() => setExportScope("full")}>全体</button>
+              <button className={exportScope === "figure" ? "active" : ""} onClick={() => setExportScope("figure")}>人物のみ</button>
             </div>
           </div>
 

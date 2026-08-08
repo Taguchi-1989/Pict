@@ -266,6 +266,10 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .helmet-icon::before { content: ""; width: 23px; height: 13px; border: 2px solid #111; border-radius: 14px 14px 3px 3px; background: #111; }
 .table-icon::before { content: ""; width: 23px; height: 11px; border-top: 4px solid #111; border-left: 3px solid #111; border-right: 3px solid #111; }
 .harness-icon { color: #92999c; font-size: 17px; font-weight: 900; }
+.shadow-icon::before { content: ""; width: 22px; height: 8px; border-radius: 50%; background: #9aa39c; }
+.grid-icon::before { content: ""; width: 24px; height: 13px; background: repeating-linear-gradient(60deg, #111 0 1px, transparent 1px 7px), repeating-linear-gradient(120deg, #111 0 1px, transparent 1px 7px); }
+.template-link { display: block; margin-top: 11px; padding: 9px 11px; border-radius: 9px; background: #edf0ed; color: #3c463f; font-size: 9px; font-weight: 700; text-align: center; text-decoration: none; }
+.template-link:hover { background: #e2e8e3; }
 .hand-select { margin-bottom: 10px; }
 .item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 195px; overflow-y: auto; padding-right: 3px; }
 .item-button {
