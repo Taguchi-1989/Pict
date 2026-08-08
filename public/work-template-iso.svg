@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 440" width="400" height="440" data-floor-y="398">
+  <!--
+    ピクトポーズ ワーク用アイソメテンプレート
+    ・座標系はピクトポーズの書き出しSVGと同一（400×440）
+    ・床線は y=398。人物の足元がここに接地する
+    ・ワークは id="your-work" のグループ内に、主色 #111111 / 補助色 #7b8480 の2色で描く
+    ・id="guide" と id="sample-work" のグループは合成前に削除する
+    ・完成したワークとピクトポーズの「人物のみ」書き出しSVGを同じ400×440キャンバスに
+      重ねるだけで位置が合う（人物側SVGの data-anchor-* 属性に手首・腰の座標が入っている）
+  -->
+  <g id="guide">
+    <g fill="none" stroke="#a9b1ab" stroke-width="1" opacity="0.55">
+      <path d="M -140 435 L -19 365 M -96 435 L 25 365 M -52 435 L 69 365 M -8 435 L 113 365 M 36 435 L 157 365 M 80 435 L 201 365 M 124 435 L 245 365 M 168 435 L 289 365 M 212 435 L 333 365 M 256 435 L 377 365 M 300 435 L 421 365 M 344 435 L 465 365 M 388 435 L 509 365" />
+      <path d="M -140 365 L -19 435 M -96 365 L 25 435 M -52 365 L 69 435 M -8 365 L 113 435 M 36 365 L 157 435 M 80 365 L 201 435 M 124 365 L 245 435 M 168 365 L 289 435 M 212 365 L 333 435 M 256 365 L 377 435 M 300 365 L 421 435 M 344 365 L 465 435 M 388 365 L 509 435" />
+    </g>
+    <path d="M 0 398 H 400" fill="none" stroke="#d94b3d" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.8" />
+    <text x="6" y="392" fill="#d94b3d" font-size="10" font-family="sans-serif">床線 y=398（人物の足元）</text>
+  </g>
+  <g id="sample-work">
+    <!-- アイソメの箱の見本（30°）。左面=濃、右面=補助色、上面=淡＋#111の輪郭 -->
+    <path d="M 300 398 L 248 368 L 248 298 L 300 328 Z" fill="#5f6763" stroke="#111111" stroke-width="3" stroke-linejoin="round" />
+    <path d="M 300 398 L 352 368 L 352 298 L 300 328 Z" fill="#7b8480" stroke="#111111" stroke-width="3" stroke-linejoin="round" />
+    <path d="M 300 328 L 248 298 L 300 268 L 352 298 Z" fill="#c1c7c3" stroke="#111111" stroke-width="3" stroke-linejoin="round" />
+  </g>
+  <g id="your-work">
+    <!-- ここに自作ワークを描く -->
+  </g>
+</svg>
