@@ -609,16 +609,23 @@ function Figure({
       <HeldItemLayer pose={pose} items={items} />
 
       {editable && jointNames.map((joint) => (
-        <circle
-          key={joint}
-          cx={pose[joint].x}
-          cy={pose[joint].y}
-          r={selected === joint ? 10 : 8}
-          className={`joint-handle editor-only ${selected === joint ? "is-selected" : ""}`}
-          onPointerDown={(event) => onJointPointerDown?.(joint, event)}
-          role="button"
-          aria-label={`${jointLabels[joint]}を移動`}
-        />
+        <g key={joint} className="editor-only">
+          <circle
+            cx={pose[joint].x}
+            cy={pose[joint].y}
+            r={16}
+            className="joint-hit-area"
+            onPointerDown={(event) => onJointPointerDown?.(joint, event)}
+            role="button"
+            aria-label={`${jointLabels[joint]}を移動`}
+          />
+          <circle
+            cx={pose[joint].x}
+            cy={pose[joint].y}
+            r={selected === joint ? 10 : 8}
+            className={`joint-handle ${selected === joint ? "is-selected" : ""}`}
+          />
+        </g>
       ))}
     </g>
   );
@@ -731,7 +738,11 @@ export default function PoseEditor() {
 
   const onJointPointerDown = (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => {
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // 一部のモバイルブラウザではタッチ終了後にポインターが無効になり例外を投げる
+    }
     dragging.current = { joint, before: clonePose(pose) };
     setSelectedJoint(joint);
     setNotice(`${jointLabels[joint]}を調整中`);
@@ -739,9 +750,10 @@ export default function PoseEditor() {
 
   const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!dragging.current) return;
+    const joint = dragging.current.joint;
     const point = clientToSvg(event.clientX, event.clientY);
     if (!point) return;
-    setPose((current) => ({ ...current, [dragging.current!.joint]: point }));
+    setPose((current) => ({ ...current, [joint]: point }));
   };
 
   const finishDrag = () => {

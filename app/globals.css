@@ -189,17 +189,18 @@ button { color: inherit; }
   letter-spacing: .08em;
   backdrop-filter: blur(8px);
 }
-.editor-canvas { display: block; width: min(72%, 430px); max-height: 520px; touch-action: none; overflow: visible; }
+.editor-canvas { display: block; width: min(72%, 430px); max-height: 520px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overflow: visible; }
+.joint-hit-area { fill: transparent; stroke: none; cursor: grab; touch-action: none; }
+.joint-hit-area:active { cursor: grabbing; }
 .joint-handle {
+  pointer-events: none;
   fill: #fff;
   stroke: #7d8b80;
   stroke-width: 2.5;
-  cursor: grab;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .14));
   transition: r .12s ease, fill .12s ease;
 }
-.joint-handle:hover, .joint-handle.is-selected { fill: var(--accent); stroke: var(--ink); }
-.joint-handle:active { cursor: grabbing; }
+.joint-hit-area:hover + .joint-handle, .joint-handle.is-selected { fill: var(--accent); stroke: var(--ink); }
 .figure-root .scene-layer [fill]:not([fill="none"]):not([fill="white"]),
 .figure-root .scene-layer[fill]:not([fill="none"]):not([fill="white"]) { fill: var(--secondary-color); }
 .figure-root .scene-layer [stroke]:not([stroke="none"]):not([stroke="white"]),
@@ -325,7 +326,7 @@ footer a { color: inherit; font-weight: 700; text-underline-offset: 3px; }
 .about-contact { display: inline-flex; margin-top: 18px; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .about-footer { margin-top: 36px; padding: 20px 0 0; border-top: 1px solid var(--line); color: #7d887f; font-size: 10px; }
 
-button:focus-visible, input:focus-visible, .joint-handle:focus-visible { outline: 3px solid #a9c900; outline-offset: 2px; }
+button:focus-visible, input:focus-visible, .joint-hit-area:focus-visible { outline: 3px solid #a9c900; outline-offset: 2px; }
 
 @media (max-width: 1120px) {
   .topbar { grid-template-columns: 1fr auto; }
