@@ -241,6 +241,29 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .color-row input[type="color"]::-webkit-color-swatch { border: 0; }
 .segmented { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 9px; background: #edf0ed; }
 .segmented.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.mode-switch { min-width: 118px; }
+.mode-switch button { padding: 0 12px; }
+.mode-hint { margin: 8px 0 0; color: #7b867e; font-size: 10px; line-height: 1.6; }
+.favorites-heading { margin-top: 18px; }
+.favorites-empty { margin: 8px 0 0; color: #7b867e; font-size: 10px; line-height: 1.7; }
+.favorite-card { text-align: center; }
+.favorite-delete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: #e7ece8;
+  color: #6c776e;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.favorite-delete:hover { background: var(--ink); color: #fff; }
 .segmented.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .equip-rows { display: grid; gap: 5px; margin-bottom: 10px; }
 .equip-rows > label { margin: 0; }

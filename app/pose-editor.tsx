@@ -113,6 +113,24 @@ const itemOptions: { id: ItemType; label: string; short: string }[] = [
   { id: "box", label: "段ボール箱", short: "□" },
 ];
 
+type EditorMode = "simple" | "advanced";
+
+type Favorite = {
+  id: string;
+  name: string;
+  pose: Pose;
+  view: PoseView;
+  equipment: Equipment;
+  items: HeldItems;
+  scene: SceneType;
+  showTable: boolean;
+};
+
+const simplePresetIds = ["neutral", "walk", "sit"];
+const MODE_STORAGE_KEY = "pict-editor-mode";
+const FAVORITES_STORAGE_KEY = "pict-favorites";
+const FAVORITES_LIMIT = 24;
+
 const initialStyle: FigureStyle = {
   color: "#111111",
   secondaryColor: "#7b8480",
@@ -932,16 +950,90 @@ export default function PoseEditor() {
   const [history, setHistory] = useState<Pose[]>([]);
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
+  const [mode, setMode] = useState<EditorMode>("simple");
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<{ joint: JointName; before: Pose } | null>(null);
 
+  useEffect(() => {
+    // 静的書き出しではサーバー側にlocalStorageがないため、マウント後に復元する
+    try {
+      const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (storedMode === "simple" || storedMode === "advanced") setMode(storedMode);
+      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+         
+        if (Array.isArray(parsed)) setFavorites(parsed as Favorite[]);
+      }
+    } catch {
+      // 端末保存が使えない環境（プライベートモード等）では既定値のまま
+    }
+  }, []);
+
+  const changeMode = (next: EditorMode) => {
+    setMode(next);
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, next);
+    } catch { /* 保存できなくても動作は継続 */ }
+    if (next === "simple") setCategory("すべて");
+    setNotice(next === "simple" ? "簡単モード: 基本3ポーズ＋ヘルメット・安全靴のみ" : "拡張モード: すべてのプリセットと装備を表示");
+  };
+
+  const persistFavorites = (next: Favorite[]) => {
+    setFavorites(next);
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      setNotice("この端末ではお気に入りを保存できませんでした");
+    }
+  };
+
+  const saveFavorite = () => {
+    const favorite: Favorite = {
+      id: `fav-${Date.now()}`,
+      name: `お気に入り${favorites.length + 1}`,
+      pose: clonePose(pose),
+      view,
+      equipment: { ...equipment },
+      items: { left: { ...items.left }, right: { ...items.right } },
+      scene,
+      showTable,
+    };
+    persistFavorites([...favorites, favorite].slice(-FAVORITES_LIMIT));
+    setNotice(`「${favorite.name}」として保存しました（この端末のみ）`);
+  };
+
+  const loadFavorite = (id: string) => {
+    const favorite = favorites.find((candidate) => candidate.id === id);
+    if (!favorite) return;
+    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
+    setFuture([]);
+    setPose(clonePose(favorite.pose));
+    setView(favorite.view);
+    setEquipment({ ...emptyEquipment, ...favorite.equipment });
+    setItems({ left: { ...emptyItems.left, ...favorite.items?.left }, right: { ...emptyItems.right, ...favorite.items?.right } });
+    setScene(favorite.scene ?? "none");
+    setShowTable(favorite.showTable ?? true);
+    setSelectedJoint(null);
+    setNotice(`「${favorite.name}」を読み込みました`);
+  };
+
+  const deleteFavorite = (id: string) => {
+    const favorite = favorites.find((candidate) => candidate.id === id);
+    persistFavorites(favorites.filter((candidate) => candidate.id !== id));
+    setNotice(favorite ? `「${favorite.name}」を削除しました` : "お気に入りを削除しました");
+  };
+
   const visiblePresets = useMemo(
     () => posePresets.filter((preset) => {
+      if (mode === "simple") return simplePresetIds.includes(preset.id);
       if (category === "すべて") return true;
       if (category === "横向き") return preset.view === "side";
       return preset.category === category;
     }),
-    [category],
+    [category, mode],
   );
 
   const loadPreset = (id: string) => {
@@ -1145,6 +1237,10 @@ export default function PoseEditor() {
         </div>
         <p className="header-copy">姿勢・保護具・道具を組み合わせ、作業マニュアル用の人物図を保存。</p>
         <div className="export-actions">
+          <div className="segmented mode-switch" role="group" aria-label="編集モード">
+            <button className={mode === "simple" ? "active" : ""} onClick={() => changeMode("simple")} aria-pressed={mode === "simple"}>簡単</button>
+            <button className={mode === "advanced" ? "active" : ""} onClick={() => changeMode("advanced")} aria-pressed={mode === "advanced"}>拡張</button>
+          </div>
           <Link className="button secondary nav-link" href="/about">About</Link>
           <button className="button secondary" onClick={downloadPng}>PNG保存</button>
           <button className="button primary" onClick={downloadSvg}>SVGを保存</button>
@@ -1155,13 +1251,16 @@ export default function PoseEditor() {
         <aside className="preset-panel panel">
           <div className="panel-heading">
             <div><span className="step">01</span><h2>姿勢を選ぶ</h2></div>
-            <span className="count">{posePresets.length} POSES</span>
+            <span className="count">{visiblePresets.length} POSES</span>
           </div>
-          <div className="category-tabs" aria-label="姿勢カテゴリ">
-            {categories.map((item) => (
-              <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
-            ))}
-          </div>
+          {mode === "advanced" && (
+            <div className="category-tabs" aria-label="姿勢カテゴリ">
+              {categories.map((item) => (
+                <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
+              ))}
+            </div>
+          )}
+          {mode === "simple" && <p className="mode-hint">基本の3ポーズから選び、関節をドラッグして自由に調整。もっとプリセットが欲しいときは右上の「拡張」へ。</p>}
           <div className="preset-grid">
             {visiblePresets.map((preset) => (
               <button key={preset.id} className={`preset-card ${presetId === preset.id ? "active" : ""}`} onClick={() => loadPreset(preset.id)} aria-pressed={presetId === preset.id}>
@@ -1179,6 +1278,46 @@ export default function PoseEditor() {
               </button>
             ))}
           </div>
+
+          <div className="panel-heading favorites-heading">
+            <div><span className="step">★</span><h2>お気に入り</h2></div>
+            <span className="count">{favorites.length} SAVED</span>
+          </div>
+          {favorites.length === 0 ? (
+            <p className="favorites-empty">編集画面の「☆ 保存」で現在の姿勢・装備・道具をこの端末（ブラウザ）に保存できます。</p>
+          ) : (
+            <div className="preset-grid">
+              {favorites.map((favorite) => (
+                <div
+                  key={favorite.id}
+                  className="preset-card favorite-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => loadFavorite(favorite.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      loadFavorite(favorite.id);
+                    }
+                  }}
+                >
+                  <svg viewBox="0 0 400 440" aria-hidden="true">
+                    <Figure
+                      pose={favorite.pose}
+                      view={favorite.view}
+                      style={{ ...initialStyle, strokeWidth: 25, headRadius: 30 }}
+                      equipment={{ ...emptyEquipment, ...favorite.equipment }}
+                      items={{ left: { ...emptyItems.left, ...favorite.items?.left }, right: { ...emptyItems.right, ...favorite.items?.right } }}
+                      scene={favorite.scene ?? "none"}
+                      showTable={favorite.showTable ?? true}
+                    />
+                  </svg>
+                  <span>{favorite.name}</span>
+                  <button className="favorite-delete" aria-label={`${favorite.name}を削除`} onClick={(event) => { event.stopPropagation(); deleteFavorite(favorite.id); }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
         </aside>
 
         <section className="editor-panel panel">
@@ -1189,6 +1328,7 @@ export default function PoseEditor() {
               <button onClick={redo} disabled={!future.length} aria-label="やり直す">↷</button>
               <button onClick={mirror}>左右反転</button>
               <button onClick={reset}>姿勢リセット</button>
+              <button onClick={saveFavorite} aria-label="現在の状態をお気に入りに保存">☆ 保存</button>
             </div>
           </div>
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
@@ -1203,6 +1343,25 @@ export default function PoseEditor() {
 
         <aside className="settings-panel panel">
           <div className="panel-heading"><div><span className="step">03</span><h2>装備と見た目</h2></div></div>
+          {mode === "simple" ? (
+            <div className="setting-group equipment-group">
+              <label>安全装備 <strong>基本の2つ</strong></label>
+              <div className="option-stack">
+                <button className={equipment.headgear === "helmet" ? "option-toggle active" : "option-toggle"} onClick={() => chooseHeadgear(equipment.headgear === "helmet" ? "none" : "helmet")} aria-pressed={equipment.headgear === "helmet"}>
+                  <span className="option-icon helmet-icon" aria-hidden="true" />
+                  <span><strong>ヘルメット</strong><small>{equipment.headgear === "helmet" ? "表示中" : "非表示"}</small></span>
+                  <i>{equipment.headgear === "helmet" ? "ON" : "OFF"}</i>
+                </button>
+                <button className={equipment.safetyShoes ? "option-toggle active" : "option-toggle"} onClick={() => toggleEquipmentFlag("safetyShoes")} aria-pressed={equipment.safetyShoes}>
+                  <span className="option-icon glyph-icon" aria-hidden="true">◣</span>
+                  <span><strong>安全靴</strong><small>{equipment.safetyShoes ? "表示中（常時着用が基本）" : "非表示"}</small></span>
+                  <i>{equipment.safetyShoes ? "ON" : "OFF"}</i>
+                </button>
+              </div>
+              <p className="mode-hint">手袋・防護服・道具・配色は右上の「拡張」モードで設定できます。</p>
+            </div>
+          ) : (
+            <>
           <div className="setting-group equipment-group">
             <label>安全装備 <strong>個別にON / OFF</strong></label>
             <div className="equip-rows">
@@ -1325,6 +1484,8 @@ export default function PoseEditor() {
               <button className={exportScope === "figure" ? "active" : ""} onClick={() => setExportScope("figure")}>人物のみ</button>
             </div>
           </div>
+          </>
+          )}
 
           <div className="selected-joint">
             <p>選択中の関節</p>
