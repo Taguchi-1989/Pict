@@ -36,3 +36,6 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+
+# MediaPipe wasm (ビルド時に node_modules から生成)
+/public/mediapipe/

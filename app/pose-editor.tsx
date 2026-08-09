@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   useCallback,
@@ -14,6 +15,8 @@ import {
   clonePose,
   jointLabels,
   posePresets,
+  presetTagOrder,
+  type PresetTag,
   type JointName,
   type ItemType,
   type Point,
@@ -22,9 +25,13 @@ import {
   type PoseView,
   type SceneType,
 } from "./pose-data";
+import type { DetectedFigure } from "./photo-pose";
+
+// 解析用のwasmとモデルは10MBを超えるため、写真を読み取るときだけ読み込む。
+const PhotoImport = dynamic(() => import("./photo-import"), { ssr: false });
 
 const jointNames = Object.keys(jointLabels) as JointName[];
-const categories = ["すべて", "基本", "移動", "作業", "注意・合図", "横向き"] as const;
+const categories = ["すべて", "基本", "移動", "作業", "注意・合図", "災害・ケガ", "横向き"] as const;
 
 type FigureStyle = {
   color: string;
@@ -124,6 +131,7 @@ type Favorite = {
   items: HeldItems;
   scene: SceneType;
   showTable: boolean;
+  injuryJoint?: JointName | null;
 };
 
 const simplePresetIds = ["neutral", "walk", "sit"];
@@ -770,6 +778,25 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
   );
 }
 
+/** 労災報告で「どこを負傷したか」を示すための、関節に付ける衝撃マーク。 */
+function InjuryMarkLayer({ pose, joint }: { pose: Pose; joint: JointName | null }) {
+  if (!joint) return null;
+  const center = pose[joint];
+  const spikes = 12;
+  const outline = Array.from({ length: spikes * 2 }, (_, index) => {
+    const radius = index % 2 === 0 ? 27 : 15;
+    const angle = (Math.PI * index) / spikes - Math.PI / 2;
+    return `${(center.x + Math.cos(angle) * radius).toFixed(1)} ${(center.y + Math.sin(angle) * radius).toFixed(1)}`;
+  }).join(" L ");
+  const path = `M ${outline} Z`;
+  return (
+    <g className="injury-layer" strokeLinejoin="round">
+      <path d={path} fill="white" stroke="white" strokeWidth="7" />
+      <path d={path} fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
+    </g>
+  );
+}
+
 function FloorGridLayer() {
   // 30°勾配（dy70 / dx121）の2方向ラインでアイソメ風の床帯を描く
   const xs = Array.from({ length: 13 }, (_, i) => -140 + i * 44);
@@ -804,6 +831,7 @@ function Figure({
   floorGrid = false,
   editable = false,
   selected,
+  injuryJoint = null,
   onJointPointerDown,
 }: {
   pose: Pose;
@@ -817,6 +845,7 @@ function Figure({
   floorGrid?: boolean;
   editable?: boolean;
   selected?: JointName | null;
+  injuryJoint?: JointName | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
 }) {
   const shoulderMid = midpoint(pose.shoulderL, pose.shoulderR);
@@ -859,6 +888,7 @@ function Figure({
       <EquipmentLayer pose={pose} style={style} equipment={equipment} view={view} />
       <SceneSafetyOverlay scene={scene} pose={pose} />
       <HeldItemLayer pose={pose} items={items} />
+      <InjuryMarkLayer pose={pose} joint={injuryJoint} />
 
       {editable && jointNames.map((joint) => (
         <g key={joint} className="editor-only">
@@ -946,11 +976,14 @@ export default function PoseEditor() {
   const [exportScope, setExportScope] = useState<ExportScope>("full");
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
+  const [tagFilter, setTagFilter] = useState<PresetTag | null>(null);
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
+  const [injuryJoint, setInjuryJoint] = useState<JointName | null>(null);
   const [history, setHistory] = useState<Pose[]>([]);
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
   const [mode, setMode] = useState<EditorMode>("simple");
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<{ joint: JointName; before: Pose } | null>(null);
@@ -977,7 +1010,10 @@ export default function PoseEditor() {
     try {
       localStorage.setItem(MODE_STORAGE_KEY, next);
     } catch { /* 保存できなくても動作は継続 */ }
-    if (next === "simple") setCategory("すべて");
+    if (next === "simple") {
+      setCategory("すべて");
+      setTagFilter(null);
+    }
     setNotice(next === "simple" ? "簡単モード: 基本3ポーズ＋ヘルメット・安全靴のみ" : "拡張モード: すべてのプリセットと装備を表示");
   };
 
@@ -1000,6 +1036,7 @@ export default function PoseEditor() {
       items: { left: { ...items.left }, right: { ...items.right } },
       scene,
       showTable,
+      injuryJoint,
     };
     persistFavorites([...favorites, favorite].slice(-FAVORITES_LIMIT));
     setNotice(`「${favorite.name}」として保存しました（この端末のみ）`);
@@ -1017,7 +1054,19 @@ export default function PoseEditor() {
     setScene(favorite.scene ?? "none");
     setShowTable(favorite.showTable ?? true);
     setSelectedJoint(null);
+    setInjuryJoint(favorite.injuryJoint ?? null);
     setNotice(`「${favorite.name}」を読み込みました`);
+  };
+
+  const applyDetectedFigure = (figure: DetectedFigure, index: number) => {
+    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
+    setFuture([]);
+    setPose(clonePose(figure.pose));
+    setView(figure.view);
+    setSelectedJoint(null);
+    setInjuryJoint(null);
+    setPhotoOpen(false);
+    setNotice(`写真の人物${index + 1}の姿勢を取り込みました。関節をドラッグして微調整できます`);
   };
 
   const deleteFavorite = (id: string) => {
@@ -1029,12 +1078,28 @@ export default function PoseEditor() {
   const visiblePresets = useMemo(
     () => posePresets.filter((preset) => {
       if (mode === "simple") return simplePresetIds.includes(preset.id);
+      if (tagFilter && !preset.tags.includes(tagFilter)) return false;
       if (category === "すべて") return true;
       if (category === "横向き") return preset.view === "side";
       return preset.category === category;
     }),
-    [category, mode],
+    [category, mode, tagFilter],
   );
+
+  // 選んだカテゴリの中に該当が1つもないタグは押せないようにする。
+  const tagsInCategory = useMemo(() => {
+    const inCategory = posePresets.filter((preset) => {
+      if (category === "すべて") return true;
+      if (category === "横向き") return preset.view === "side";
+      return preset.category === category;
+    });
+    return new Set(inCategory.flatMap((preset) => preset.tags));
+  }, [category]);
+
+  const chooseTag = (tag: PresetTag | null) => {
+    setTagFilter(tag);
+    setNotice(tag ? `タグ「${tag}」で絞り込みました` : "タグの絞り込みを解除しました");
+  };
 
   const loadPreset = (id: string) => {
     const preset = posePresets.find((candidate) => candidate.id === id);
@@ -1049,6 +1114,7 @@ export default function PoseEditor() {
     setScene(defaultsToScene(preset.defaults));
     setShowTable(true);
     setSelectedJoint(null);
+    setInjuryJoint(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
 
@@ -1159,6 +1225,13 @@ export default function PoseEditor() {
     setNotice(bodysuit === "none" ? "全身の保護服を外しました" : `全身の保護服を「${label}」にしました`);
   };
 
+  const toggleInjuryMark = () => {
+    if (!selectedJoint) return;
+    const next = injuryJoint === selectedJoint ? null : selectedJoint;
+    setInjuryJoint(next);
+    setNotice(next ? `${jointLabels[next]}に受傷部位マークを付けました` : "受傷部位マークを外しました");
+  };
+
   const toggleEquipmentFlag = (key: EquipmentFlag) => {
     const label = equipmentFlagOptions.find((option) => option.key === key)?.label ?? "装備";
     setNotice(`${label}を${equipment[key] ? "非表示" : "表示"}にしました`);
@@ -1254,16 +1327,37 @@ export default function PoseEditor() {
             <span className="count">{visiblePresets.length} POSES</span>
           </div>
           {mode === "advanced" && (
-            <div className="category-tabs" aria-label="姿勢カテゴリ">
-              {categories.map((item) => (
-                <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
-              ))}
-            </div>
+            <>
+              <div className="category-tabs" aria-label="姿勢カテゴリ">
+                {categories.map((item) => (
+                  <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
+                ))}
+              </div>
+              <div className="tag-tabs" aria-label="用途タグで絞り込み">
+                <span className="tag-tabs-label">用途</span>
+                <button className={tagFilter === null ? "active" : ""} onClick={() => chooseTag(null)}>指定なし</button>
+                {presetTagOrder.map((tag) => (
+                  <button
+                    key={tag}
+                    className={tagFilter === tag ? "active" : ""}
+                    onClick={() => chooseTag(tagFilter === tag ? null : tag)}
+                    disabled={!tagsInCategory.has(tag)}
+                    aria-pressed={tagFilter === tag}
+                  >{tag}</button>
+                ))}
+              </div>
+            </>
           )}
           {mode === "simple" && <p className="mode-hint">基本の3ポーズから選び、関節をドラッグして自由に調整。もっとプリセットが欲しいときは右上の「拡張」へ。</p>}
           <div className="preset-grid">
             {visiblePresets.map((preset) => (
-              <button key={preset.id} className={`preset-card ${presetId === preset.id ? "active" : ""}`} onClick={() => loadPreset(preset.id)} aria-pressed={presetId === preset.id}>
+              <button
+                key={preset.id}
+                className={`preset-card ${presetId === preset.id ? "active" : ""}`}
+                onClick={() => loadPreset(preset.id)}
+                aria-pressed={presetId === preset.id}
+                title={preset.tags.length ? `${preset.name}（${preset.tags.join(" / ")}）` : preset.name}
+              >
                 <svg viewBox="0 0 400 440" aria-hidden="true">
                   <Figure
                     pose={preset.pose}
@@ -1275,9 +1369,15 @@ export default function PoseEditor() {
                   />
                 </svg>
                 <span>{preset.name}</span>
+                {mode === "advanced" && preset.tags.length > 0 && (
+                  <em className="preset-tags">{preset.tags.join("・")}</em>
+                )}
               </button>
             ))}
           </div>
+          {visiblePresets.length === 0 && (
+            <p className="mode-hint">この組み合わせに当てはまる姿勢がありません。カテゴリか用途タグを変えてください。</p>
+          )}
 
           <div className="panel-heading favorites-heading">
             <div><span className="step">★</span><h2>お気に入り</h2></div>
@@ -1310,6 +1410,7 @@ export default function PoseEditor() {
                       items={{ left: { ...emptyItems.left, ...favorite.items?.left }, right: { ...emptyItems.right, ...favorite.items?.right } }}
                       scene={favorite.scene ?? "none"}
                       showTable={favorite.showTable ?? true}
+                      injuryJoint={favorite.injuryJoint ?? null}
                     />
                   </svg>
                   <span>{favorite.name}</span>
@@ -1329,12 +1430,13 @@ export default function PoseEditor() {
               <button onClick={mirror}>左右反転</button>
               <button onClick={reset}>姿勢リセット</button>
               <button onClick={saveFavorite} aria-label="現在の状態をお気に入りに保存">☆ 保存</button>
+              <button className="photo-open" onClick={() => setPhotoOpen(true)}>写真から読み取る</button>
             </div>
           </div>
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} injuryJoint={injuryJoint} onJointPointerDown={onJointPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
@@ -1491,6 +1593,19 @@ export default function PoseEditor() {
             <p>選択中の関節</p>
             <strong>{selectedJoint ? jointLabels[selectedJoint] : "未選択"}</strong>
             <span>{selectedJoint ? `X ${Math.round(pose[selectedJoint].x)} / Y ${Math.round(pose[selectedJoint].y)}` : "キャンバス上の丸を選択"}</span>
+            <button
+              className={injuryJoint ? "injury-button active" : "injury-button"}
+              onClick={toggleInjuryMark}
+              disabled={!selectedJoint}
+              aria-pressed={Boolean(injuryJoint)}
+            >
+              {injuryJoint === selectedJoint && selectedJoint
+                ? "受傷部位マークを外す"
+                : injuryJoint
+                  ? `受傷部位マークをここへ移す（現在：${jointLabels[injuryJoint]}）`
+                  : "受傷部位マークを付ける"}
+            </button>
+            <small className="injury-note">労災報告書で「どこを負傷したか」を示すときに使います。</small>
           </div>
           <div className="privacy-note">
             <span aria-hidden="true">✓</span>
@@ -1498,6 +1613,8 @@ export default function PoseEditor() {
           </div>
         </aside>
       </section>
+
+      {photoOpen && <PhotoImport onApply={applyDetectedFigure} onClose={() => setPhotoOpen(false)} />}
 
       <footer>
         <p><Link href="/about">About・商用利用について</Link>　<a href="mailto:nandemokarute.ch@gmail.com">機能要望</a></p>
