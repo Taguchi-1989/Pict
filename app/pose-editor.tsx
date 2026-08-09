@@ -35,10 +35,53 @@ type FigureStyle = {
   background: "transparent" | "white";
 };
 
+type GloveType = "none" | "leather" | "rubber" | "long";
+type HeadgearType = "none" | "helmet" | "cap" | "plastic-cap";
+type BodySuitType = "none" | "coverall" | "cleanroom";
+type EquipmentFlag = "harness" | "apron" | "safetyShoes" | "goggles" | "dustMask" | "earMuffs" | "vest";
+
 type Equipment = {
-  helmet: boolean;
+  headgear: HeadgearType;
+  gloves: GloveType;
+  bodysuit: BodySuitType;
   harness: boolean;
+  apron: boolean;
+  safetyShoes: boolean;
+  goggles: boolean;
+  dustMask: boolean;
+  earMuffs: boolean;
+  vest: boolean;
 };
+
+const headgearOptions: { id: HeadgearType; label: string }[] = [
+  { id: "none", label: "なし" },
+  { id: "helmet", label: "ヘルメット" },
+  { id: "cap", label: "室内帽" },
+  { id: "plastic-cap", label: "プラキャップ" },
+];
+
+const gloveOptions: { id: GloveType; label: string }[] = [
+  { id: "none", label: "なし" },
+  { id: "leather", label: "革手袋" },
+  { id: "rubber", label: "ゴム手袋" },
+  { id: "long", label: "ロング手袋" },
+];
+
+const bodysuitOptions: { id: BodySuitType; label: string }[] = [
+  { id: "none", label: "なし" },
+  { id: "coverall", label: "全身防護服" },
+  { id: "cleanroom", label: "クリーン服" },
+];
+
+const equipmentFlagOptions: { key: EquipmentFlag; label: string; icon: string; iconClass?: string; onNote?: string }[] = [
+  { key: "harness", label: "墜落制止用器具", icon: "Y", iconClass: "harness-icon" },
+  { key: "apron", label: "エプロン", icon: "▽" },
+  { key: "safetyShoes", label: "安全靴", icon: "◣", onNote: "表示中（常時着用が基本）" },
+  { key: "goggles", label: "ゴーグル", icon: "∞" },
+  { key: "dustMask", label: "防塵マスク", icon: "◒" },
+  { key: "earMuffs", label: "イヤーマフ", icon: "∩" },
+  { key: "vest", label: "反射ベスト", icon: "▥" },
+];
 
 type Hand = "left" | "right";
 type HeldItem = { type: ItemType; rotation: number; scale: number };
@@ -91,13 +134,37 @@ function sceneHasTable(scene: SceneType) {
   return tableScenes.has(scene);
 }
 
+const emptyEquipment: Equipment = {
+  headgear: "none",
+  gloves: "none",
+  bodysuit: "none",
+  harness: false,
+  apron: false,
+  safetyShoes: false,
+  goggles: false,
+  dustMask: false,
+  earMuffs: false,
+  vest: false,
+};
+
 const emptyItems: HeldItems = {
   left: { type: "none", rotation: -10, scale: 1 },
   right: { type: "none", rotation: 10, scale: 1 },
 };
 
 function defaultsToEquipment(defaults: PresetDefaults): Equipment {
-  return { helmet: Boolean(defaults.helmet), harness: Boolean(defaults.harness) };
+  return {
+    headgear: defaults.helmet ? "helmet" : "none",
+    gloves: "none",
+    bodysuit: "none",
+    harness: Boolean(defaults.harness),
+    apron: false,
+    safetyShoes: true,
+    goggles: false,
+    dustMask: false,
+    earMuffs: false,
+    vest: false,
+  };
 }
 
 function defaultsToItems(defaults: PresetDefaults): HeldItems {
@@ -113,6 +180,10 @@ function defaultsToScene(defaults: PresetDefaults): SceneType {
 
 function midpoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function lerp(a: Point, b: Point, t: number): Point {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
 function ItemShape({ type }: { type: ItemType }) {
@@ -487,12 +558,80 @@ function HeldItemLayer({ pose, items }: { pose: Pose; items: HeldItems }) {
   );
 }
 
-function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureStyle; equipment: Equipment }) {
+function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose; style: FigureStyle; equipment: Equipment; view?: PoseView }) {
   const shoulderMid = midpoint(pose.shoulderL, pose.shoulderR);
   const hipMid = midpoint(pose.hipL, pose.hipR);
   const head = pose.head;
+  const headR = style.headRadius;
+  const isSide = view === "side";
+  const rearOpacity = isSide ? 0.38 : 1;
+  const facing = head.x >= hipMid.x ? 1 : -1;
+  const torsoPath = `M ${pose.shoulderL.x} ${pose.shoulderL.y} Q ${shoulderMid.x} ${shoulderMid.y - 5} ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.hipR.x} ${pose.hipR.y} Q ${hipMid.x} ${hipMid.y + 4} ${pose.hipL.x} ${pose.hipL.y} Z`;
+  const limbPath = (a: Point, b: Point, c: Point) => `M ${a.x} ${a.y} L ${b.x} ${b.y} L ${c.x} ${c.y}`;
+  const clean = equipment.bodysuit === "cleanroom";
+
+  const arms = [
+    { elbow: pose.elbowL, wrist: pose.wristL, opacity: rearOpacity },
+    { elbow: pose.elbowR, wrist: pose.wristR, opacity: 1 },
+  ];
+  const legs = [
+    { ankle: pose.ankleL, opacity: rearOpacity },
+    { ankle: pose.ankleR, opacity: 1 },
+  ];
+  const suitLimbs = [
+    { d: limbPath(pose.shoulderL, pose.elbowL, pose.wristL), opacity: rearOpacity },
+    { d: limbPath(pose.hipL, pose.kneeL, pose.ankleL), opacity: rearOpacity },
+    { d: limbPath(pose.shoulderR, pose.elbowR, pose.wristR), opacity: 1 },
+    { d: limbPath(pose.hipR, pose.kneeR, pose.ankleR), opacity: 1 },
+  ];
+  const cuffStart = equipment.gloves === "long" ? 0.04 : equipment.gloves === "rubber" ? 0.5 : 0.76;
+  const shoeW = Math.max(26, style.strokeWidth * 1.5);
+  const shoeH = Math.max(12, style.strokeWidth * 0.62);
+  const apronTopHalf = Math.max(16, Math.abs(pose.shoulderR.x - pose.shoulderL.x) * 0.3);
+  const apronBottomHalf = Math.abs(pose.hipR.x - pose.hipL.x) / 2 + 15;
+  const apronTopY = shoulderMid.y + 15;
+  const apronBottomY = hipMid.y + 44;
+
   return (
     <>
+      {equipment.bodysuit !== "none" && (
+        <g className="equipment-layer bodysuit-layer" strokeLinecap="round" strokeLinejoin="round">
+          {suitLimbs.map((limb, index) => (
+            <g key={index} opacity={limb.opacity}>
+              <path d={limb.d} fill="none" stroke="var(--secondary-color)" strokeWidth={clean ? style.strokeWidth + 5 : style.strokeWidth} />
+              {clean && <path d={limb.d} fill="none" stroke="white" strokeWidth={Math.max(6, style.strokeWidth - 4)} />}
+            </g>
+          ))}
+          <path d={torsoPath} fill={clean ? "white" : "var(--secondary-color)"} stroke="var(--secondary-color)" strokeWidth={clean ? 5 : style.strokeWidth * 0.72} />
+          <circle cx={head.x} cy={head.y} r={headR + 7} fill="none" stroke="var(--secondary-color)" strokeWidth={clean ? 11 : 8} />
+          {clean && <circle cx={head.x} cy={head.y} r={headR + 7} fill="none" stroke="white" strokeWidth="5" />}
+        </g>
+      )}
+      {equipment.vest && (
+        <g className="equipment-layer vest-layer" fill="none" strokeLinecap="round">
+          {[0.3, 0.7].map((t) => {
+            const top = lerp(pose.shoulderL, pose.shoulderR, t);
+            const bottom = lerp(pose.hipL, pose.hipR, t);
+            return (
+              <g key={t}>
+                <path d={`M ${top.x} ${top.y + 6} L ${bottom.x} ${bottom.y - 6}`} stroke="var(--secondary-color)" strokeWidth="9" />
+                <path d={`M ${top.x} ${top.y + 6} L ${bottom.x} ${bottom.y - 6}`} stroke="white" strokeWidth="5" opacity=".92" />
+              </g>
+            );
+          })}
+          <path d={`M ${lerp(pose.hipL, pose.hipR, 0.06).x} ${lerp(pose.hipL, pose.hipR, 0.06).y - 16} L ${lerp(pose.hipL, pose.hipR, 0.94).x} ${lerp(pose.hipL, pose.hipR, 0.94).y - 16}`} stroke="white" strokeWidth="5" opacity=".92" />
+        </g>
+      )}
+      {equipment.apron && (
+        <g className="equipment-layer apron-layer" strokeLinejoin="round">
+          <path d={`M ${shoulderMid.x - apronTopHalf} ${apronTopY} Q ${pose.neck.x} ${pose.neck.y} ${shoulderMid.x + apronTopHalf} ${apronTopY}`} fill="none" stroke="var(--secondary-color)" strokeWidth="5" />
+          <path
+            d={`M ${shoulderMid.x - apronTopHalf} ${apronTopY} L ${shoulderMid.x + apronTopHalf} ${apronTopY} L ${hipMid.x + apronBottomHalf} ${apronBottomY} L ${hipMid.x - apronBottomHalf} ${apronBottomY} Z`}
+            fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="3"
+          />
+          <path d={`M ${hipMid.x - apronBottomHalf + 6} ${hipMid.y - 6} L ${hipMid.x + apronBottomHalf - 6} ${hipMid.y - 6}`} fill="none" stroke="white" strokeWidth="3" opacity=".6" />
+        </g>
+      )}
       {equipment.harness && (
         <g className="equipment-layer harness-layer" fill="none" stroke="var(--secondary-color)" strokeWidth={Math.max(6, style.strokeWidth * 0.32)} strokeLinecap="round" strokeLinejoin="round">
           <path d={`M ${pose.shoulderL.x} ${pose.shoulderL.y + 5} L ${hipMid.x + 11} ${hipMid.y - 4} L ${pose.shoulderR.x} ${pose.shoulderR.y + 5}`} />
@@ -503,7 +642,47 @@ function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureS
           <circle cx={shoulderMid.x} cy={(shoulderMid.y + hipMid.y) / 2} r="5" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2" />
         </g>
       )}
-      {equipment.helmet && (
+      {equipment.gloves !== "none" && (
+        <g className="equipment-layer glove-layer">
+          {arms.map((arm, index) => {
+            const start = lerp(arm.elbow, arm.wrist, cuffStart);
+            const dx = arm.wrist.x - start.x;
+            const dy = arm.wrist.y - start.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const cuffBar = Math.max(9, style.strokeWidth * 0.72);
+            const nx = (-dy / len) * cuffBar;
+            const ny = (dx / len) * cuffBar;
+            return (
+              <g key={index} opacity={arm.opacity}>
+                <path d={`M ${start.x} ${start.y} L ${arm.wrist.x} ${arm.wrist.y}`} fill="none" stroke="var(--secondary-color)" strokeWidth={style.strokeWidth * 1.14} strokeLinecap="round" />
+                {equipment.gloves !== "leather" && (
+                  <path d={`M ${start.x - nx} ${start.y - ny} L ${start.x + nx} ${start.y + ny}`} fill="none" stroke="var(--secondary-color)" strokeWidth="6" strokeLinecap="round" />
+                )}
+                <circle cx={arm.wrist.x} cy={arm.wrist.y} r={style.strokeWidth * 0.68} fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
+              </g>
+            );
+          })}
+        </g>
+      )}
+      {equipment.safetyShoes && (
+        <g className="equipment-layer shoe-layer">
+          {legs.map((leg, index) => (
+            <rect
+              key={index}
+              x={leg.ankle.x - shoeW / 2 + (isSide ? facing * 5 : 0)}
+              y={leg.ankle.y - shoeH * 0.4}
+              width={shoeW}
+              height={shoeH}
+              rx={shoeH / 2}
+              fill="var(--secondary-color)"
+              stroke="var(--primary-color)"
+              strokeWidth="3"
+              opacity={leg.opacity}
+            />
+          ))}
+        </g>
+      )}
+      {equipment.headgear === "helmet" && (
         <g className="equipment-layer helmet-layer" stroke="var(--primary-color)" strokeWidth="4" strokeLinejoin="round">
           <path
             d={`M ${head.x - style.headRadius - 3} ${head.y - 8} Q ${head.x - style.headRadius + 1} ${head.y - style.headRadius - 23} ${head.x} ${head.y - style.headRadius - 25} Q ${head.x + style.headRadius - 2} ${head.y - style.headRadius - 21} ${head.x + style.headRadius + 3} ${head.y - 8} Z`}
@@ -512,6 +691,61 @@ function EquipmentLayer({ pose, style, equipment }: { pose: Pose; style: FigureS
           <rect x={head.x - style.headRadius - 12} y={head.y - 10} width={style.headRadius * 2 + 27} height="9" rx="4.5" fill="var(--primary-color)" stroke="none" />
           <path d={`M ${head.x - 2} ${head.y - style.headRadius - 24} V ${head.y - style.headRadius - 10}`} fill="none" stroke="white" strokeWidth="3" opacity=".75" />
           <path d={`M ${head.x - style.headRadius + 3} ${head.y - 10} Q ${head.x} ${head.y - 16} ${head.x + style.headRadius - 3} ${head.y - 10}`} fill="none" stroke="white" strokeWidth="3" opacity=".72" />
+        </g>
+      )}
+      {equipment.headgear === "cap" && (
+        <g className="equipment-layer cap-layer" strokeLinejoin="round" strokeLinecap="round">
+          <path
+            d={`M ${head.x - headR + 3} ${head.y - 8} Q ${head.x - headR + 2} ${head.y - headR - 11} ${head.x} ${head.y - headR - 11} Q ${head.x + headR - 2} ${head.y - headR - 11} ${head.x + headR - 3} ${head.y - 8} Z`}
+            fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="3"
+          />
+          {isSide ? (
+            <path d={`M ${head.x + (headR - 7) * facing} ${head.y - 9} Q ${head.x + (headR + 12) * facing} ${head.y - 10} ${head.x + (headR + 14) * facing} ${head.y - 4}`} fill="none" stroke="var(--secondary-color)" strokeWidth="6" />
+          ) : (
+            <path d={`M ${head.x - headR - 5} ${head.y - 8} L ${head.x + headR + 5} ${head.y - 8}`} fill="none" stroke="var(--secondary-color)" strokeWidth="6" />
+          )}
+        </g>
+      )}
+      {equipment.headgear === "plastic-cap" && (
+        <g className="equipment-layer plastic-cap-layer" strokeLinejoin="round" strokeLinecap="round">
+          <path
+            d={`M ${head.x - headR - 4} ${head.y - 1} Q ${head.x - headR - 5} ${head.y - headR - 13} ${head.x} ${head.y - headR - 13} Q ${head.x + headR + 5} ${head.y - headR - 13} ${head.x + headR + 4} ${head.y - 1} Z`}
+            fill="white" opacity=".94" stroke="var(--secondary-color)" strokeWidth="4"
+          />
+          <path d={`M ${head.x - headR - 2} ${head.y - 1} L ${head.x + headR + 2} ${head.y - 1}`} fill="none" stroke="var(--secondary-color)" strokeWidth="3" strokeDasharray="5 4" />
+        </g>
+      )}
+      {equipment.goggles && (
+        <g className="equipment-layer goggle-layer" strokeLinejoin="round" strokeLinecap="round">
+          <path d={`M ${head.x - headR - 4} ${head.y - 5} L ${head.x + headR + 4} ${head.y - 5}`} fill="none" stroke="var(--secondary-color)" strokeWidth="5" />
+          <rect
+            x={head.x - headR * 0.62 + (isSide ? facing * headR * 0.28 : 0)}
+            y={head.y - 13}
+            width={headR * 1.24}
+            height="16"
+            rx="8"
+            fill="white" opacity=".95" stroke="var(--secondary-color)" strokeWidth="4"
+          />
+        </g>
+      )}
+      {equipment.dustMask && (
+        <g className="equipment-layer mask-layer" strokeLinejoin="round" strokeLinecap="round">
+          <path d={`M ${head.x - headR} ${head.y + 2} L ${head.x - headR * 0.5} ${head.y + headR * 0.4} M ${head.x + headR} ${head.y + 2} L ${head.x + headR * 0.5} ${head.y + headR * 0.4}`} fill="none" stroke="var(--secondary-color)" strokeWidth="3.5" />
+          <ellipse
+            cx={head.x + (isSide ? facing * headR * 0.3 : 0)}
+            cy={head.y + headR * 0.42}
+            rx={headR * 0.62}
+            ry={headR * 0.46}
+            fill="white" opacity=".96" stroke="var(--secondary-color)" strokeWidth="4"
+          />
+          <circle cx={head.x + (isSide ? facing * headR * 0.3 : 0)} cy={head.y + headR * 0.5} r="4" fill="var(--secondary-color)" />
+        </g>
+      )}
+      {equipment.earMuffs && (
+        <g className="equipment-layer earmuff-layer" strokeLinecap="round">
+          <path d={`M ${head.x - headR * 0.86} ${head.y} Q ${head.x} ${head.y - headR - 12} ${head.x + headR * 0.86} ${head.y}`} fill="none" stroke="var(--secondary-color)" strokeWidth="5.5" />
+          <circle cx={head.x - headR * 0.86} cy={head.y + 3} r="9" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
+          <circle cx={head.x + headR * 0.86} cy={head.y + 3} r="9" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
         </g>
       )}
     </>
@@ -544,7 +778,7 @@ function Figure({
   pose,
   style,
   view = "front",
-  equipment = { helmet: false, harness: false },
+  equipment = emptyEquipment,
   items = emptyItems,
   scene = "none",
   showTable = true,
@@ -604,7 +838,7 @@ function Figure({
       <circle cx={pose.wristL.x} cy={pose.wristL.y} r={style.strokeWidth * 0.58} fill={style.color} opacity={rearOpacity} />
       <circle cx={pose.wristR.x} cy={pose.wristR.y} r={style.strokeWidth * 0.58} fill={style.color} />
       <circle cx={pose.head.x} cy={pose.head.y} r={style.headRadius} fill={style.color} />
-      <EquipmentLayer pose={pose} style={style} equipment={equipment} />
+      <EquipmentLayer pose={pose} style={style} equipment={equipment} view={view} />
       <SceneSafetyOverlay scene={scene} pose={pose} />
       <HeldItemLayer pose={pose} items={items} />
 
@@ -815,6 +1049,30 @@ export default function PoseEditor() {
     setNotice(`${activeHand === "left" ? "左手" : "右手"}の道具を「${label}」にしました`);
   };
 
+  const chooseHeadgear = (headgear: HeadgearType) => {
+    setEquipment((current) => ({ ...current, headgear }));
+    const label = headgearOptions.find((option) => option.id === headgear)?.label ?? "なし";
+    setNotice(headgear === "none" ? "頭部の保護具を外しました" : `頭部の保護具を「${label}」にしました`);
+  };
+
+  const chooseGloves = (gloves: GloveType) => {
+    setEquipment((current) => ({ ...current, gloves }));
+    const label = gloveOptions.find((option) => option.id === gloves)?.label ?? "なし";
+    setNotice(gloves === "none" ? "手袋を外しました" : `手袋を「${label}」にしました`);
+  };
+
+  const chooseBodysuit = (bodysuit: BodySuitType) => {
+    setEquipment((current) => ({ ...current, bodysuit }));
+    const label = bodysuitOptions.find((option) => option.id === bodysuit)?.label ?? "なし";
+    setNotice(bodysuit === "none" ? "全身の保護服を外しました" : `全身の保護服を「${label}」にしました`);
+  };
+
+  const toggleEquipmentFlag = (key: EquipmentFlag) => {
+    const label = equipmentFlagOptions.find((option) => option.key === key)?.label ?? "装備";
+    setNotice(`${label}を${equipment[key] ? "非表示" : "表示"}にしました`);
+    setEquipment((current) => ({ ...current, [key]: !current[key] }));
+  };
+
   const reset = () => loadPreset(presetId);
 
   const getSvg = () => svgRef.current ? serializeSvg(svgRef.current, figureStyle, pose, exportScope) : null;
@@ -947,17 +1205,34 @@ export default function PoseEditor() {
           <div className="panel-heading"><div><span className="step">03</span><h2>装備と見た目</h2></div></div>
           <div className="setting-group equipment-group">
             <label>安全装備 <strong>個別にON / OFF</strong></label>
+            <div className="equip-rows">
+              <label>頭部</label>
+              <div className="segmented cols-4">
+                {headgearOptions.map((option) => (
+                  <button key={option.id} className={equipment.headgear === option.id ? "active" : ""} onClick={() => chooseHeadgear(option.id)} aria-pressed={equipment.headgear === option.id}>{option.label}</button>
+                ))}
+              </div>
+              <label>手袋</label>
+              <div className="segmented cols-4">
+                {gloveOptions.map((option) => (
+                  <button key={option.id} className={equipment.gloves === option.id ? "active" : ""} onClick={() => chooseGloves(option.id)} aria-pressed={equipment.gloves === option.id}>{option.label}</button>
+                ))}
+              </div>
+              <label>全身</label>
+              <div className="segmented cols-3">
+                {bodysuitOptions.map((option) => (
+                  <button key={option.id} className={equipment.bodysuit === option.id ? "active" : ""} onClick={() => chooseBodysuit(option.id)} aria-pressed={equipment.bodysuit === option.id}>{option.label}</button>
+                ))}
+              </div>
+            </div>
             <div className="option-stack">
-              <button className={equipment.helmet ? "option-toggle active" : "option-toggle"} onClick={() => setEquipment((current) => ({ ...current, helmet: !current.helmet }))} aria-pressed={equipment.helmet}>
-                <span className="option-icon helmet-icon" aria-hidden="true" />
-                <span><strong>ヘルメット</strong><small>{equipment.helmet ? "表示中" : "非表示"}</small></span>
-                <i>{equipment.helmet ? "ON" : "OFF"}</i>
-              </button>
-              <button className={equipment.harness ? "option-toggle active" : "option-toggle"} onClick={() => setEquipment((current) => ({ ...current, harness: !current.harness }))} aria-pressed={equipment.harness}>
-                <span className="option-icon harness-icon" aria-hidden="true">Y</span>
-                <span><strong>墜落制止用器具</strong><small>{equipment.harness ? "表示中" : "非表示"}</small></span>
-                <i>{equipment.harness ? "ON" : "OFF"}</i>
-              </button>
+              {equipmentFlagOptions.map((flag) => (
+                <button key={flag.key} className={equipment[flag.key] ? "option-toggle active" : "option-toggle"} onClick={() => toggleEquipmentFlag(flag.key)} aria-pressed={equipment[flag.key]}>
+                  <span className={`option-icon ${flag.iconClass ?? "glyph-icon"}`} aria-hidden="true">{flag.icon}</span>
+                  <span><strong>{flag.label}</strong><small>{equipment[flag.key] ? (flag.onNote ?? "表示中") : "非表示"}</small></span>
+                  <i>{equipment[flag.key] ? "ON" : "OFF"}</i>
+                </button>
+              ))}
               <button
                 className={showTable && sceneHasTable(scene) ? "option-toggle active" : "option-toggle"}
                 onClick={() => setShowTable((current) => !current)}
