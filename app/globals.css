@@ -266,6 +266,23 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .favorite-delete:hover { background: var(--ink); color: #fff; }
 
 .history-actions .photo-open { background: var(--ink); border-color: var(--ink); color: var(--accent); }
+.injury-button {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.injury-button:hover:not(:disabled) { border-color: var(--ink); background: #f4ffd0; }
+.injury-button.active { border-color: var(--ink); background: var(--ink); color: var(--accent); }
+.injury-button:disabled { cursor: not-allowed; opacity: .5; }
+.injury-note { display: block; margin-top: 6px; color: #7b867e; font-size: 9px; line-height: 1.6; }
 .photo-overlay {
   position: fixed;
   inset: 0;

@@ -29,7 +29,7 @@ import type { DetectedFigure } from "./photo-pose";
 const PhotoImport = dynamic(() => import("./photo-import"), { ssr: false });
 
 const jointNames = Object.keys(jointLabels) as JointName[];
-const categories = ["すべて", "基本", "移動", "作業", "注意・合図", "横向き"] as const;
+const categories = ["すべて", "基本", "移動", "作業", "注意・合図", "災害・ケガ", "横向き"] as const;
 
 type FigureStyle = {
   color: string;
@@ -129,6 +129,7 @@ type Favorite = {
   items: HeldItems;
   scene: SceneType;
   showTable: boolean;
+  injuryJoint?: JointName | null;
 };
 
 const simplePresetIds = ["neutral", "walk", "sit"];
@@ -775,6 +776,25 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
   );
 }
 
+/** 労災報告で「どこを負傷したか」を示すための、関節に付ける衝撃マーク。 */
+function InjuryMarkLayer({ pose, joint }: { pose: Pose; joint: JointName | null }) {
+  if (!joint) return null;
+  const center = pose[joint];
+  const spikes = 12;
+  const outline = Array.from({ length: spikes * 2 }, (_, index) => {
+    const radius = index % 2 === 0 ? 27 : 15;
+    const angle = (Math.PI * index) / spikes - Math.PI / 2;
+    return `${(center.x + Math.cos(angle) * radius).toFixed(1)} ${(center.y + Math.sin(angle) * radius).toFixed(1)}`;
+  }).join(" L ");
+  const path = `M ${outline} Z`;
+  return (
+    <g className="injury-layer" strokeLinejoin="round">
+      <path d={path} fill="white" stroke="white" strokeWidth="7" />
+      <path d={path} fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
+    </g>
+  );
+}
+
 function FloorGridLayer() {
   // 30°勾配（dy70 / dx121）の2方向ラインでアイソメ風の床帯を描く
   const xs = Array.from({ length: 13 }, (_, i) => -140 + i * 44);
@@ -809,6 +829,7 @@ function Figure({
   floorGrid = false,
   editable = false,
   selected,
+  injuryJoint = null,
   onJointPointerDown,
 }: {
   pose: Pose;
@@ -822,6 +843,7 @@ function Figure({
   floorGrid?: boolean;
   editable?: boolean;
   selected?: JointName | null;
+  injuryJoint?: JointName | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
 }) {
   const shoulderMid = midpoint(pose.shoulderL, pose.shoulderR);
@@ -864,6 +886,7 @@ function Figure({
       <EquipmentLayer pose={pose} style={style} equipment={equipment} view={view} />
       <SceneSafetyOverlay scene={scene} pose={pose} />
       <HeldItemLayer pose={pose} items={items} />
+      <InjuryMarkLayer pose={pose} joint={injuryJoint} />
 
       {editable && jointNames.map((joint) => (
         <g key={joint} className="editor-only">
@@ -952,6 +975,7 @@ export default function PoseEditor() {
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
+  const [injuryJoint, setInjuryJoint] = useState<JointName | null>(null);
   const [history, setHistory] = useState<Pose[]>([]);
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
@@ -1006,6 +1030,7 @@ export default function PoseEditor() {
       items: { left: { ...items.left }, right: { ...items.right } },
       scene,
       showTable,
+      injuryJoint,
     };
     persistFavorites([...favorites, favorite].slice(-FAVORITES_LIMIT));
     setNotice(`「${favorite.name}」として保存しました（この端末のみ）`);
@@ -1023,6 +1048,7 @@ export default function PoseEditor() {
     setScene(favorite.scene ?? "none");
     setShowTable(favorite.showTable ?? true);
     setSelectedJoint(null);
+    setInjuryJoint(favorite.injuryJoint ?? null);
     setNotice(`「${favorite.name}」を読み込みました`);
   };
 
@@ -1032,6 +1058,7 @@ export default function PoseEditor() {
     setPose(clonePose(figure.pose));
     setView(figure.view);
     setSelectedJoint(null);
+    setInjuryJoint(null);
     setPhotoOpen(false);
     setNotice(`写真の人物${index + 1}の姿勢を取り込みました。関節をドラッグして微調整できます`);
   };
@@ -1065,6 +1092,7 @@ export default function PoseEditor() {
     setScene(defaultsToScene(preset.defaults));
     setShowTable(true);
     setSelectedJoint(null);
+    setInjuryJoint(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
 
@@ -1173,6 +1201,13 @@ export default function PoseEditor() {
     setEquipment((current) => ({ ...current, bodysuit }));
     const label = bodysuitOptions.find((option) => option.id === bodysuit)?.label ?? "なし";
     setNotice(bodysuit === "none" ? "全身の保護服を外しました" : `全身の保護服を「${label}」にしました`);
+  };
+
+  const toggleInjuryMark = () => {
+    if (!selectedJoint) return;
+    const next = injuryJoint === selectedJoint ? null : selectedJoint;
+    setInjuryJoint(next);
+    setNotice(next ? `${jointLabels[next]}に受傷部位マークを付けました` : "受傷部位マークを外しました");
   };
 
   const toggleEquipmentFlag = (key: EquipmentFlag) => {
@@ -1326,6 +1361,7 @@ export default function PoseEditor() {
                       items={{ left: { ...emptyItems.left, ...favorite.items?.left }, right: { ...emptyItems.right, ...favorite.items?.right } }}
                       scene={favorite.scene ?? "none"}
                       showTable={favorite.showTable ?? true}
+                      injuryJoint={favorite.injuryJoint ?? null}
                     />
                   </svg>
                   <span>{favorite.name}</span>
@@ -1351,7 +1387,7 @@ export default function PoseEditor() {
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} injuryJoint={injuryJoint} onJointPointerDown={onJointPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
@@ -1508,6 +1544,19 @@ export default function PoseEditor() {
             <p>選択中の関節</p>
             <strong>{selectedJoint ? jointLabels[selectedJoint] : "未選択"}</strong>
             <span>{selectedJoint ? `X ${Math.round(pose[selectedJoint].x)} / Y ${Math.round(pose[selectedJoint].y)}` : "キャンバス上の丸を選択"}</span>
+            <button
+              className={injuryJoint ? "injury-button active" : "injury-button"}
+              onClick={toggleInjuryMark}
+              disabled={!selectedJoint}
+              aria-pressed={Boolean(injuryJoint)}
+            >
+              {injuryJoint === selectedJoint && selectedJoint
+                ? "受傷部位マークを外す"
+                : injuryJoint
+                  ? `受傷部位マークをここへ移す（現在：${jointLabels[injuryJoint]}）`
+                  : "受傷部位マークを付ける"}
+            </button>
+            <small className="injury-note">労災報告書で「どこを負傷したか」を示すときに使います。</small>
           </div>
           <div className="privacy-note">
             <span aria-hidden="true">✓</span>

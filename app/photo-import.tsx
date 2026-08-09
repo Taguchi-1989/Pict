@@ -193,7 +193,7 @@ export default function PhotoImport({ onApply, onClose }: { onApply: (figure: De
               >
                 <div className="photo-person-info">
                   <strong>人物{index + 1}</strong>
-                  <small>{detection.figure.view === "side" ? "横向き" : "正面"}／読み取り精度 {Math.round(detection.figure.confidence * 100)}%</small>
+                  <small>{detection.figure.view === "side" ? "横向き" : "正面"}／関節の見え方 {Math.round(detection.figure.confidence * 100)}%</small>
                 </div>
                 <button className="button primary" onClick={() => onApply(detection.figure, index)}>この姿勢を取り込む</button>
               </div>
@@ -201,7 +201,10 @@ export default function PhotoImport({ onApply, onClose }: { onApply: (figure: De
           </div>
         )}
 
-        <p className="photo-hint">読み取った姿勢はそのまま関節をドラッグして直せます。全身が写り、人が重なっていない写真ほど精度が上がります。</p>
+        <p className="photo-hint">
+          装置や柱で一部が隠れていても、隠れた関節は推定して補われます。ただし体の半分ほどが隠れると姿勢が崩れやすくなります。
+          読み取った姿勢はそのまま関節をドラッグして直せます。
+        </p>
       </div>
     </div>
   );

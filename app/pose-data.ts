@@ -29,7 +29,7 @@ export type PresetDefaults = {
 export type PosePreset = {
   id: string;
   name: string;
-  category: "基本" | "移動" | "作業" | "注意・合図";
+  category: "基本" | "移動" | "作業" | "注意・合図" | "災害・ケガ";
   view: PoseView;
   pose: Pose;
   defaults: PresetDefaults;
@@ -275,6 +275,92 @@ export const posePresets: PosePreset[] = [
     helmet: true, scene: "box-carry",
   }),
   make("side-stand", "横向き・直立", "基本", sideStand, "side"),
+
+  // 労災報告書の「事故の型」（厚生労働省の分類）に合わせた被災状況の姿勢。
+  make("slip-fall", "転倒（すべる）", "災害・ケガ", {
+    head: { x: 126, y: 196 }, neck: { x: 152, y: 222 },
+    shoulderL: { x: 162, y: 232 }, elbowL: { x: 142, y: 184 }, wristL: { x: 146, y: 136 },
+    shoulderR: { x: 172, y: 224 }, elbowR: { x: 196, y: 180 }, wristR: { x: 216, y: 138 },
+    hipL: { x: 222, y: 288 }, kneeL: { x: 266, y: 250 }, ankleL: { x: 312, y: 228 },
+    hipR: { x: 230, y: 296 }, kneeR: { x: 254, y: 346 }, ankleR: { x: 300, y: 378 },
+  }, "side"),
+  make("height-fall", "墜落・転落", "災害・ケガ", {
+    head: { x: 150, y: 118 }, neck: { x: 172, y: 146 },
+    shoulderL: { x: 182, y: 158 }, elbowL: { x: 146, y: 190 }, wristL: { x: 112, y: 216 },
+    shoulderR: { x: 192, y: 148 }, elbowR: { x: 224, y: 112 }, wristR: { x: 252, y: 86 },
+    hipL: { x: 238, y: 224 }, kneeL: { x: 224, y: 294 }, ankleL: { x: 260, y: 340 },
+    hipR: { x: 248, y: 214 }, kneeR: { x: 290, y: 258 }, ankleR: { x: 322, y: 302 },
+  }, "side", { helmet: true }),
+  make("caught-in", "はさまれ・巻き込まれ", "災害・ケガ", {
+    head: { x: 172, y: 80 }, neck: { x: 178, y: 118 },
+    shoulderL: { x: 146, y: 128 }, elbowL: { x: 120, y: 180 }, wristL: { x: 110, y: 234 },
+    shoulderR: { x: 214, y: 122 }, elbowR: { x: 268, y: 134 }, wristR: { x: 326, y: 146 },
+    hipL: { x: 160, y: 246 }, kneeL: { x: 150, y: 324 }, ankleL: { x: 142, y: 398 },
+    hipR: { x: 198, y: 244 }, kneeR: { x: 198, y: 324 }, ankleR: { x: 202, y: 398 },
+  }, "front", { helmet: true }),
+  make("falling-object", "飛来・落下物", "災害・ケガ", {
+    head: { x: 200, y: 112 }, neck: { x: 200, y: 150 },
+    shoulderL: { x: 166, y: 158 }, elbowL: { x: 138, y: 122 }, wristL: { x: 172, y: 88 },
+    shoulderR: { x: 234, y: 158 }, elbowR: { x: 262, y: 122 }, wristR: { x: 228, y: 88 },
+    hipL: { x: 180, y: 266 }, kneeL: { x: 164, y: 332 }, ankleL: { x: 156, y: 398 },
+    hipR: { x: 220, y: 266 }, kneeR: { x: 236, y: 332 }, ankleR: { x: 244, y: 398 },
+  }, "front", { helmet: true }),
+  make("hand-cut", "切れ・こすれ", "災害・ケガ", {
+    head: { x: 200, y: 76 }, neck: { x: 200, y: 114 },
+    shoulderL: { x: 166, y: 122 }, elbowL: { x: 142, y: 176 }, wristL: { x: 184, y: 198 },
+    shoulderR: { x: 234, y: 122 }, elbowR: { x: 258, y: 176 }, wristR: { x: 214, y: 196 },
+    hipL: { x: 182, y: 244 }, kneeL: { x: 178, y: 324 }, ankleL: { x: 176, y: 398 },
+    hipR: { x: 218, y: 244 }, kneeR: { x: 222, y: 324 }, ankleR: { x: 224, y: 398 },
+  }),
+  make("burn-contact", "高温との接触（やけど）", "災害・ケガ", {
+    head: { x: 224, y: 84 }, neck: { x: 208, y: 120 },
+    shoulderL: { x: 196, y: 130 }, elbowL: { x: 174, y: 180 }, wristL: { x: 190, y: 222 },
+    shoulderR: { x: 218, y: 122 }, elbowR: { x: 256, y: 148 }, wristR: { x: 294, y: 118 },
+    hipL: { x: 194, y: 248 }, kneeL: { x: 172, y: 326 }, ankleL: { x: 148, y: 396 },
+    hipR: { x: 214, y: 244 }, kneeR: { x: 230, y: 322 }, ankleR: { x: 258, y: 394 },
+  }, "side"),
+  make("electric-shock", "感電", "災害・ケガ", {
+    head: { x: 200, y: 74 }, neck: { x: 200, y: 112 },
+    shoulderL: { x: 162, y: 122 }, elbowL: { x: 120, y: 150 }, wristL: { x: 82, y: 126 },
+    shoulderR: { x: 238, y: 122 }, elbowR: { x: 280, y: 150 }, wristR: { x: 318, y: 126 },
+    hipL: { x: 180, y: 244 }, kneeL: { x: 170, y: 324 }, ankleL: { x: 164, y: 398 },
+    hipR: { x: 220, y: 244 }, kneeR: { x: 230, y: 324 }, ankleR: { x: 236, y: 398 },
+  }),
+  make("back-strain", "腰を痛める（動作の反動）", "災害・ケガ", {
+    head: { x: 250, y: 132 }, neck: { x: 226, y: 162 },
+    shoulderL: { x: 212, y: 170 }, elbowL: { x: 186, y: 214 }, wristL: { x: 200, y: 252 },
+    shoulderR: { x: 234, y: 164 }, elbowR: { x: 258, y: 206 }, wristR: { x: 224, y: 248 },
+    hipL: { x: 192, y: 258 }, kneeL: { x: 186, y: 330 }, ankleL: { x: 182, y: 396 },
+    hipR: { x: 210, y: 254 }, kneeR: { x: 214, y: 330 }, ankleR: { x: 218, y: 396 },
+  }, "side"),
+  make("head-bump", "激突（頭をぶつける）", "災害・ケガ", {
+    head: { x: 236, y: 98 }, neck: { x: 214, y: 130 },
+    shoulderL: { x: 202, y: 140 }, elbowL: { x: 186, y: 184 }, wristL: { x: 220, y: 120 },
+    shoulderR: { x: 222, y: 134 }, elbowR: { x: 250, y: 180 }, wristR: { x: 254, y: 228 },
+    hipL: { x: 196, y: 254 }, kneeL: { x: 190, y: 330 }, ankleL: { x: 186, y: 396 },
+    hipR: { x: 214, y: 250 }, kneeR: { x: 218, y: 328 }, ankleR: { x: 222, y: 396 },
+  }, "side"),
+  make("crouch-injured", "うずくまる（負傷）", "災害・ケガ", {
+    head: { x: 222, y: 214 }, neck: { x: 212, y: 250 },
+    shoulderL: { x: 200, y: 258 }, elbowL: { x: 192, y: 302 }, wristL: { x: 224, y: 326 },
+    shoulderR: { x: 220, y: 252 }, elbowR: { x: 232, y: 296 }, wristR: { x: 258, y: 320 },
+    hipL: { x: 186, y: 332 }, kneeL: { x: 244, y: 340 }, ankleL: { x: 212, y: 394 },
+    hipR: { x: 200, y: 328 }, kneeR: { x: 256, y: 334 }, ankleR: { x: 226, y: 392 },
+  }, "side"),
+  make("heat-exhaustion", "熱中症で座り込む", "災害・ケガ", {
+    head: { x: 218, y: 202 }, neck: { x: 208, y: 238 },
+    shoulderL: { x: 196, y: 246 }, elbowL: { x: 180, y: 296 }, wristL: { x: 208, y: 336 },
+    shoulderR: { x: 216, y: 240 }, elbowR: { x: 250, y: 272 }, wristR: { x: 242, y: 210 },
+    hipL: { x: 188, y: 352 }, kneeL: { x: 256, y: 338 }, ankleL: { x: 300, y: 384 },
+    hipR: { x: 202, y: 348 }, kneeR: { x: 264, y: 350 }, ankleR: { x: 308, y: 388 },
+  }, "side"),
+  make("lying-down", "倒れている", "災害・ケガ", {
+    head: { x: 106, y: 340 }, neck: { x: 144, y: 346 },
+    shoulderL: { x: 160, y: 364 }, elbowL: { x: 196, y: 386 }, wristL: { x: 236, y: 394 },
+    shoulderR: { x: 160, y: 344 }, elbowR: { x: 200, y: 302 }, wristR: { x: 240, y: 296 },
+    hipL: { x: 258, y: 372 }, kneeL: { x: 310, y: 378 }, ankleL: { x: 356, y: 388 },
+    hipR: { x: 258, y: 352 }, kneeR: { x: 312, y: 346 }, ankleR: { x: 358, y: 354 },
+  }, "side"),
 ];
 
 export const jointLabels: Record<JointName, string> = {
