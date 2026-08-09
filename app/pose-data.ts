@@ -26,6 +26,15 @@ export type PresetDefaults = {
   scene?: SceneType;
 };
 
+/** 資料の用途と作業の中身で絞り込むためのタグ。並び順がそのまま画面の並び順になる。 */
+export const presetTagOrder = [
+  "作業手順書", "労災報告", "安全教育・KY",
+  "高所作業", "工具作業", "機械・設備", "電気", "高温・溶接",
+  "運搬・重量物", "点検・測定", "清掃", "合図・誘導",
+] as const;
+
+export type PresetTag = (typeof presetTagOrder)[number];
+
 export type PosePreset = {
   id: string;
   name: string;
@@ -33,6 +42,7 @@ export type PosePreset = {
   view: PoseView;
   pose: Pose;
   defaults: PresetDefaults;
+  tags: PresetTag[];
 };
 
 const base: Pose = {
@@ -53,11 +63,62 @@ function make(
 ): PosePreset {
   return {
     id, name, category, view, defaults,
+    tags: presetTags[id] ?? [],
     pose: Object.fromEntries(
       Object.entries(base).map(([key, point]) => [key, overrides[key as JointName] ?? point]),
     ) as Pose,
   };
 }
+
+// 姿勢そのものとは別軸の「どの資料に使うか・何の作業か」をタグで持たせる。
+const presetTags: Record<string, PresetTag[]> = {
+  neutral: ["作業手順書", "安全教育・KY"],
+  sit: ["作業手順書"],
+  "side-stand": ["作業手順書"],
+  walk: ["作業手順書", "安全教育・KY"],
+  "step-up": ["作業手順書", "安全教育・KY"],
+
+  "one-up": ["合図・誘導", "安全教育・KY"],
+  "point-right": ["合図・誘導"],
+  stop: ["合図・誘導", "安全教育・KY"],
+
+  "drill-wall": ["作業手順書", "工具作業"],
+  "fasten-overhead": ["作業手順書", "工具作業", "高所作業"],
+  "tighten-pipe": ["作業手順書", "工具作業"],
+  "hammer-work": ["作業手順書", "工具作業"],
+  "saw-work": ["作業手順書", "工具作業"],
+  "cutter-table": ["作業手順書", "工具作業"],
+  "scissors-table": ["作業手順書", "工具作業"],
+  "spray-work": ["作業手順書", "清掃"],
+  "watering-work": ["作業手順書", "清掃"],
+  "brush-clean": ["作業手順書", "清掃"],
+  "wipe-table": ["作業手順書", "清掃"],
+  "flashlight-inspect": ["作業手順書", "点検・測定"],
+  "record-check": ["作業手順書", "点検・測定"],
+  "time-measure": ["作業手順書", "点検・測定"],
+  "ruler-measure": ["作業手順書", "点検・測定"],
+  "caliper-measure": ["作業手順書", "点検・測定"],
+  "impact-inspection": ["作業手順書", "点検・測定", "機械・設備"],
+  "height-check": ["作業手順書", "高所作業", "点検・測定"],
+  "crane-remote": ["作業手順書", "機械・設備", "運搬・重量物"],
+  "welding-work": ["作業手順書", "高温・溶接"],
+  lift: ["作業手順書", "運搬・重量物", "安全教育・KY"],
+  push: ["作業手順書", "運搬・重量物"],
+  "carry-box": ["作業手順書", "運搬・重量物"],
+
+  "slip-fall": ["労災報告", "安全教育・KY"],
+  "height-fall": ["労災報告", "高所作業", "安全教育・KY"],
+  "caught-in": ["労災報告", "機械・設備", "安全教育・KY"],
+  "falling-object": ["労災報告", "安全教育・KY"],
+  "hand-cut": ["労災報告", "工具作業"],
+  "burn-contact": ["労災報告", "高温・溶接"],
+  "electric-shock": ["労災報告", "電気", "安全教育・KY"],
+  "back-strain": ["労災報告", "運搬・重量物", "安全教育・KY"],
+  "head-bump": ["労災報告", "安全教育・KY"],
+  "crouch-injured": ["労災報告"],
+  "heat-exhaustion": ["労災報告", "安全教育・KY"],
+  "lying-down": ["労災報告"],
+};
 
 const sideStand: Partial<Record<JointName, Point>> = {
   head: { x: 220, y: 75 }, neck: { x: 204, y: 113 },

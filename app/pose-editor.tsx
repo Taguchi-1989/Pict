@@ -15,6 +15,8 @@ import {
   clonePose,
   jointLabels,
   posePresets,
+  presetTagOrder,
+  type PresetTag,
   type JointName,
   type ItemType,
   type Point,
@@ -974,6 +976,7 @@ export default function PoseEditor() {
   const [exportScope, setExportScope] = useState<ExportScope>("full");
   const [activeHand, setActiveHand] = useState<Hand>("right");
   const [category, setCategory] = useState<(typeof categories)[number]>("すべて");
+  const [tagFilter, setTagFilter] = useState<PresetTag | null>(null);
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
   const [injuryJoint, setInjuryJoint] = useState<JointName | null>(null);
   const [history, setHistory] = useState<Pose[]>([]);
@@ -1007,7 +1010,10 @@ export default function PoseEditor() {
     try {
       localStorage.setItem(MODE_STORAGE_KEY, next);
     } catch { /* 保存できなくても動作は継続 */ }
-    if (next === "simple") setCategory("すべて");
+    if (next === "simple") {
+      setCategory("すべて");
+      setTagFilter(null);
+    }
     setNotice(next === "simple" ? "簡単モード: 基本3ポーズ＋ヘルメット・安全靴のみ" : "拡張モード: すべてのプリセットと装備を表示");
   };
 
@@ -1072,12 +1078,28 @@ export default function PoseEditor() {
   const visiblePresets = useMemo(
     () => posePresets.filter((preset) => {
       if (mode === "simple") return simplePresetIds.includes(preset.id);
+      if (tagFilter && !preset.tags.includes(tagFilter)) return false;
       if (category === "すべて") return true;
       if (category === "横向き") return preset.view === "side";
       return preset.category === category;
     }),
-    [category, mode],
+    [category, mode, tagFilter],
   );
+
+  // 選んだカテゴリの中に該当が1つもないタグは押せないようにする。
+  const tagsInCategory = useMemo(() => {
+    const inCategory = posePresets.filter((preset) => {
+      if (category === "すべて") return true;
+      if (category === "横向き") return preset.view === "side";
+      return preset.category === category;
+    });
+    return new Set(inCategory.flatMap((preset) => preset.tags));
+  }, [category]);
+
+  const chooseTag = (tag: PresetTag | null) => {
+    setTagFilter(tag);
+    setNotice(tag ? `タグ「${tag}」で絞り込みました` : "タグの絞り込みを解除しました");
+  };
 
   const loadPreset = (id: string) => {
     const preset = posePresets.find((candidate) => candidate.id === id);
@@ -1305,16 +1327,37 @@ export default function PoseEditor() {
             <span className="count">{visiblePresets.length} POSES</span>
           </div>
           {mode === "advanced" && (
-            <div className="category-tabs" aria-label="姿勢カテゴリ">
-              {categories.map((item) => (
-                <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
-              ))}
-            </div>
+            <>
+              <div className="category-tabs" aria-label="姿勢カテゴリ">
+                {categories.map((item) => (
+                  <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>
+                ))}
+              </div>
+              <div className="tag-tabs" aria-label="用途タグで絞り込み">
+                <span className="tag-tabs-label">用途</span>
+                <button className={tagFilter === null ? "active" : ""} onClick={() => chooseTag(null)}>指定なし</button>
+                {presetTagOrder.map((tag) => (
+                  <button
+                    key={tag}
+                    className={tagFilter === tag ? "active" : ""}
+                    onClick={() => chooseTag(tagFilter === tag ? null : tag)}
+                    disabled={!tagsInCategory.has(tag)}
+                    aria-pressed={tagFilter === tag}
+                  >{tag}</button>
+                ))}
+              </div>
+            </>
           )}
           {mode === "simple" && <p className="mode-hint">基本の3ポーズから選び、関節をドラッグして自由に調整。もっとプリセットが欲しいときは右上の「拡張」へ。</p>}
           <div className="preset-grid">
             {visiblePresets.map((preset) => (
-              <button key={preset.id} className={`preset-card ${presetId === preset.id ? "active" : ""}`} onClick={() => loadPreset(preset.id)} aria-pressed={presetId === preset.id}>
+              <button
+                key={preset.id}
+                className={`preset-card ${presetId === preset.id ? "active" : ""}`}
+                onClick={() => loadPreset(preset.id)}
+                aria-pressed={presetId === preset.id}
+                title={preset.tags.length ? `${preset.name}（${preset.tags.join(" / ")}）` : preset.name}
+              >
                 <svg viewBox="0 0 400 440" aria-hidden="true">
                   <Figure
                     pose={preset.pose}
@@ -1326,9 +1369,15 @@ export default function PoseEditor() {
                   />
                 </svg>
                 <span>{preset.name}</span>
+                {mode === "advanced" && preset.tags.length > 0 && (
+                  <em className="preset-tags">{preset.tags.join("・")}</em>
+                )}
               </button>
             ))}
           </div>
+          {visiblePresets.length === 0 && (
+            <p className="mode-hint">この組み合わせに当てはまる姿勢がありません。カテゴリか用途タグを変えてください。</p>
+          )}
 
           <div className="panel-heading favorites-heading">
             <div><span className="step">★</span><h2>お気に入り</h2></div>

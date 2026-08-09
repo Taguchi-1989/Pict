@@ -114,6 +114,23 @@ button { color: inherit; }
   cursor: pointer;
 }
 .category-tabs button.active { background: var(--ink); color: #fff; }
+.tag-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 12px 0; }
+.tag-tabs-label { color: #8b958d; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.tag-tabs button {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  color: #68756d;
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tag-tabs button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.tag-tabs button.active { border-color: var(--ink); background: #f4ffd0; color: var(--ink); }
+.tag-tabs button:disabled { cursor: not-allowed; opacity: .38; }
+.preset-tags { display: block; margin-top: 3px; color: #8b958d; font-size: 8px; font-style: normal; line-height: 1.4; }
 
 .preset-grid {
   display: grid;
