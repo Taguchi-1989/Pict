@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   useCallback,
@@ -22,6 +23,10 @@ import {
   type PoseView,
   type SceneType,
 } from "./pose-data";
+import type { DetectedFigure } from "./photo-pose";
+
+// 解析用のwasmとモデルは10MBを超えるため、写真を読み取るときだけ読み込む。
+const PhotoImport = dynamic(() => import("./photo-import"), { ssr: false });
 
 const jointNames = Object.keys(jointLabels) as JointName[];
 const categories = ["すべて", "基本", "移動", "作業", "注意・合図", "横向き"] as const;
@@ -951,6 +956,7 @@ export default function PoseEditor() {
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
   const [mode, setMode] = useState<EditorMode>("simple");
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<{ joint: JointName; before: Pose } | null>(null);
@@ -1018,6 +1024,16 @@ export default function PoseEditor() {
     setShowTable(favorite.showTable ?? true);
     setSelectedJoint(null);
     setNotice(`「${favorite.name}」を読み込みました`);
+  };
+
+  const applyDetectedFigure = (figure: DetectedFigure, index: number) => {
+    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
+    setFuture([]);
+    setPose(clonePose(figure.pose));
+    setView(figure.view);
+    setSelectedJoint(null);
+    setPhotoOpen(false);
+    setNotice(`写真の人物${index + 1}の姿勢を取り込みました。関節をドラッグして微調整できます`);
   };
 
   const deleteFavorite = (id: string) => {
@@ -1329,6 +1345,7 @@ export default function PoseEditor() {
               <button onClick={mirror}>左右反転</button>
               <button onClick={reset}>姿勢リセット</button>
               <button onClick={saveFavorite} aria-label="現在の状態をお気に入りに保存">☆ 保存</button>
+              <button className="photo-open" onClick={() => setPhotoOpen(true)}>写真から読み取る</button>
             </div>
           </div>
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
@@ -1498,6 +1515,8 @@ export default function PoseEditor() {
           </div>
         </aside>
       </section>
+
+      {photoOpen && <PhotoImport onApply={applyDetectedFigure} onClose={() => setPhotoOpen(false)} />}
 
       <footer>
         <p><Link href="/about">About・商用利用について</Link>　<a href="mailto:nandemokarute.ch@gmail.com">機能要望</a></p>

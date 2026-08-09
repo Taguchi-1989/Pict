@@ -6,12 +6,15 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "node scripts/copy-mediapipe-wasm.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-mediapipe-wasm.mjs",
     "build": "next build",
     "lint": "eslint .",
     "deploy": "npx wrangler@4.119.0 deploy"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6"

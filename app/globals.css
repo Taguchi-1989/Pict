@@ -264,6 +264,80 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
   cursor: pointer;
 }
 .favorite-delete:hover { background: var(--ink); color: #fff; }
+
+.history-actions .photo-open { background: var(--ink); border-color: var(--ink); color: var(--accent); }
+.photo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgba(18, 26, 21, .55);
+  backdrop-filter: blur(3px);
+}
+.photo-dialog {
+  width: min(660px, 100%);
+  max-height: calc(100vh - 40px);
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 24px 60px rgba(15, 25, 20, .3);
+  overflow-y: auto;
+}
+.photo-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.photo-dialog-head h2 { margin: 4px 0 0; font-size: 19px; }
+.photo-close { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #6c776e; font-size: 12px; cursor: pointer; }
+.photo-close:hover { background: var(--ink); color: #fff; }
+.photo-note { margin: 12px 0 0; color: #5f6c63; font-size: 12px; line-height: 1.75; }
+.photo-note strong { color: var(--ink); }
+.photo-file { display: block; margin-top: 14px; }
+.photo-file input { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; }
+.photo-file span {
+  display: grid;
+  min-height: 74px;
+  place-items: center;
+  border: 2px dashed #b9c4bc;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.photo-file span:hover { border-color: var(--ink); background: #f4ffd0; }
+.photo-file input:disabled + span { cursor: progress; opacity: .55; }
+.photo-file input:focus-visible + span { outline: 3px solid #a9c900; outline-offset: 2px; }
+.photo-message { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: #5f6c63; font-size: 11px; line-height: 1.7; }
+.photo-message.is-error { color: #b4472f; }
+.photo-spinner {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border: 2px solid #cfd8d1;
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: photo-spin .8s linear infinite;
+}
+@keyframes photo-spin { to { transform: rotate(360deg); } }
+.photo-preview { position: relative; display: block; margin-top: 14px; border-radius: 12px; background: #101613; overflow: hidden; }
+.photo-preview img { display: block; width: 100%; max-height: 46vh; object-fit: contain; }
+.photo-preview svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.photo-people { display: grid; gap: 8px; margin-top: 14px; }
+.photo-person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+}
+.photo-person.active { border-color: var(--ink); background: #f4ffd0; }
+.photo-person-info strong { display: block; font-size: 12px; }
+.photo-person-info small { display: block; margin-top: 2px; color: #7b867e; font-size: 9px; }
+.photo-hint { margin: 14px 0 0; color: #7b867e; font-size: 10px; line-height: 1.7; }
 .segmented.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .equip-rows { display: grid; gap: 5px; margin-bottom: 10px; }
 .equip-rows > label { margin: 0; }
@@ -352,6 +426,15 @@ footer a { color: inherit; font-weight: 700; text-underline-offset: 3px; }
 .about-card p, .about-card li { color: #5f6c63; font-size: 13px; line-height: 1.85; }
 .about-card p { margin: 0; }
 .about-card ul { margin: 0; padding-left: 1.25rem; }
+.about-card h3 { margin: 22px 0 10px; font-size: 14px; }
+.about-card .about-lead { margin-top: 12px; }
+.about-card p + h3 { margin-top: 18px; }
+.about-card strong { color: var(--ink); }
+.about-table-wrap { margin-top: 16px; overflow-x: auto; }
+.about-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.about-table th, .about-table td { padding: 9px 12px; border: 1px solid var(--line); color: #5f6c63; line-height: 1.7; text-align: left; vertical-align: top; }
+.about-table thead th { background: #f3f6f2; color: var(--ink); font-size: 11px; letter-spacing: .04em; white-space: nowrap; }
+.about-table tbody th { width: 22%; background: #fafbfa; color: var(--ink); font-weight: 750; white-space: nowrap; }
 .about-contact { display: inline-flex; margin-top: 18px; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .about-footer { margin-top: 36px; padding: 20px 0 0; border-top: 1px solid var(--line); color: #7d887f; font-size: 10px; }
 
