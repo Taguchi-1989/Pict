@@ -11,6 +11,7 @@
     "prebuild": "node scripts/copy-mediapipe-wasm.mjs",
     "build": "next build",
     "lint": "eslint .",
+    "brand": "node --experimental-strip-types scripts/generate-brand-assets.mjs",
     "deploy": "npx wrangler@4.119.0 deploy"
   },
   "dependencies": {
