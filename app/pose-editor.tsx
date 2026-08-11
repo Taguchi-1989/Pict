@@ -14,17 +14,29 @@ import {
 import {
   clonePose,
   jointLabels,
+  markDefaults,
+  markGroupOptions,
+  markOptions,
+  markToneColors,
+  markToneOptions,
+  signToneOptions,
+  suggestedMarksFor,
   posePresets,
   presetTagOrder,
   type PresetTag,
   type JointName,
   type ItemType,
+  type MarkGroup,
+  type MarkType,
+  type MarkTone,
   type Point,
   type Pose,
   type PresetDefaults,
   type PoseView,
+  type SceneMark,
   type SceneType,
 } from "./pose-data";
+import { MarkGraphic, isSignMark } from "./mark-art";
 import type { DetectedFigure } from "./photo-pose";
 
 // 解析用のwasmとモデルは10MBを超えるため、写真を読み取るときだけ読み込む。
@@ -132,12 +144,15 @@ type Favorite = {
   scene: SceneType;
   showTable: boolean;
   injuryJoint?: JointName | null;
+  marks?: SceneMark[];
 };
 
 const simplePresetIds = ["neutral", "walk", "sit"];
 const MODE_STORAGE_KEY = "pict-editor-mode";
 const FAVORITES_STORAGE_KEY = "pict-favorites";
 const FAVORITES_LIMIT = 24;
+/** 1枚に置けるマークの上限。これ以上増やすと図が読めなくなる。 */
+const MARKS_LIMIT = 12;
 
 const initialStyle: FigureStyle = {
   color: "#111111",
@@ -778,6 +793,23 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
   );
 }
 
+function MarkLayer({ marks }: { marks: SceneMark[] }) {
+  if (!marks.length) return null;
+  return (
+    <g className="mark-layer">
+      {marks.map((mark) => (
+        <g
+          key={mark.id}
+          color={markToneColors[mark.tone]}
+          transform={`translate(${mark.x} ${mark.y}) rotate(${mark.rotation}) scale(${mark.scale})`}
+        >
+          <MarkGraphic type={mark.type} tone={mark.tone} label={mark.label} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
 /** 労災報告で「どこを負傷したか」を示すための、関節に付ける衝撃マーク。 */
 function InjuryMarkLayer({ pose, joint }: { pose: Pose; joint: JointName | null }) {
   if (!joint) return null;
@@ -832,7 +864,10 @@ function Figure({
   editable = false,
   selected,
   injuryJoint = null,
+  marks = [],
+  selectedMark = null,
   onJointPointerDown,
+  onMarkPointerDown,
 }: {
   pose: Pose;
   style: FigureStyle;
@@ -846,7 +881,10 @@ function Figure({
   editable?: boolean;
   selected?: JointName | null;
   injuryJoint?: JointName | null;
+  marks?: SceneMark[];
+  selectedMark?: string | null;
   onJointPointerDown?: (joint: JointName, event: ReactPointerEvent<SVGCircleElement>) => void;
+  onMarkPointerDown?: (id: string, event: ReactPointerEvent<SVGCircleElement>) => void;
 }) {
   const shoulderMid = midpoint(pose.shoulderL, pose.shoulderR);
   const hipMid = midpoint(pose.hipL, pose.hipR);
@@ -889,6 +927,7 @@ function Figure({
       <SceneSafetyOverlay scene={scene} pose={pose} />
       <HeldItemLayer pose={pose} items={items} />
       <InjuryMarkLayer pose={pose} joint={injuryJoint} />
+      <MarkLayer marks={marks} />
 
       {editable && jointNames.map((joint) => (
         <g key={joint} className="editor-only">
@@ -906,6 +945,26 @@ function Figure({
             cy={pose[joint].y}
             r={selected === joint ? 10 : 8}
             className={`joint-handle ${selected === joint ? "is-selected" : ""}`}
+          />
+        </g>
+      ))}
+
+      {editable && marks.map((mark) => (
+        <g key={mark.id} className="editor-only">
+          <circle
+            cx={mark.x}
+            cy={mark.y}
+            r={Math.max(16, 22 * mark.scale)}
+            className="joint-hit-area"
+            onPointerDown={(event) => onMarkPointerDown?.(mark.id, event)}
+            role="button"
+            aria-label={`${markOptions.find((option) => option.id === mark.type)?.label ?? "マーク"}を移動`}
+          />
+          <circle
+            cx={mark.x}
+            cy={mark.y}
+            r={selectedMark === mark.id ? 8 : 6}
+            className={`mark-handle ${selectedMark === mark.id ? "is-selected" : ""}`}
           />
         </g>
       ))}
@@ -979,6 +1038,9 @@ export default function PoseEditor() {
   const [tagFilter, setTagFilter] = useState<PresetTag | null>(null);
   const [selectedJoint, setSelectedJoint] = useState<JointName | null>(null);
   const [injuryJoint, setInjuryJoint] = useState<JointName | null>(null);
+  const [marks, setMarks] = useState<SceneMark[]>([]);
+  const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
+  const [markGroup, setMarkGroup] = useState<MarkGroup>("annotation");
   const [history, setHistory] = useState<Pose[]>([]);
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
@@ -986,7 +1048,13 @@ export default function PoseEditor() {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
-  const dragging = useRef<{ joint: JointName; before: Pose } | null>(null);
+  // 描画ごとに変わらない連番でマークIDを作る（描画中の Date.now は不安定なため）。
+  const markSeq = useRef(0);
+  const dragging = useRef<
+    | { kind: "joint"; joint: JointName; before: Pose }
+    | { kind: "mark"; id: string }
+    | null
+  >(null);
 
   useEffect(() => {
     // 静的書き出しではサーバー側にlocalStorageがないため、マウント後に復元する
@@ -1037,6 +1105,7 @@ export default function PoseEditor() {
       scene,
       showTable,
       injuryJoint,
+      marks: marks.map((mark) => ({ ...mark })),
     };
     persistFavorites([...favorites, favorite].slice(-FAVORITES_LIMIT));
     setNotice(`「${favorite.name}」として保存しました（この端末のみ）`);
@@ -1055,6 +1124,8 @@ export default function PoseEditor() {
     setShowTable(favorite.showTable ?? true);
     setSelectedJoint(null);
     setInjuryJoint(favorite.injuryJoint ?? null);
+    setMarks((favorite.marks ?? []).map((mark) => ({ ...mark, id: nextMarkId() })));
+    setSelectedMarkId(null);
     setNotice(`「${favorite.name}」を読み込みました`);
   };
 
@@ -1065,6 +1136,8 @@ export default function PoseEditor() {
     setView(figure.view);
     setSelectedJoint(null);
     setInjuryJoint(null);
+    setMarks([]);
+    setSelectedMarkId(null);
     setPhotoOpen(false);
     setNotice(`写真の人物${index + 1}の姿勢を取り込みました。関節をドラッグして微調整できます`);
   };
@@ -1115,6 +1188,8 @@ export default function PoseEditor() {
     setShowTable(true);
     setSelectedJoint(null);
     setInjuryJoint(null);
+    setMarks([]);
+    setSelectedMarkId(null);
     setNotice(`「${preset.name}」を選択しました`);
   };
 
@@ -1135,23 +1210,43 @@ export default function PoseEditor() {
     } catch {
       // 一部のモバイルブラウザではタッチ終了後にポインターが無効になり例外を投げる
     }
-    dragging.current = { joint, before: clonePose(pose) };
+    dragging.current = { kind: "joint", joint, before: clonePose(pose) };
     setSelectedJoint(joint);
     setNotice(`${jointLabels[joint]}を調整中`);
   };
 
+  const onMarkPointerDown = (id: string, event: ReactPointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // 一部のモバイルブラウザではタッチ終了後にポインターが無効になり例外を投げる
+    }
+    dragging.current = { kind: "mark", id };
+    setSelectedMarkId(id);
+    setNotice(`${markLabelOf(id)}を調整中`);
+  };
+
   const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (!dragging.current) return;
-    const joint = dragging.current.joint;
+    const target = dragging.current;
+    if (!target) return;
     const point = clientToSvg(event.clientX, event.clientY);
     if (!point) return;
-    setPose((current) => ({ ...current, [joint]: point }));
+    if (target.kind === "mark") {
+      setMarks((current) => current.map((mark) => (mark.id === target.id ? { ...mark, ...point } : mark)));
+      return;
+    }
+    setPose((current) => ({ ...current, [target.joint]: point }));
   };
 
   const finishDrag = () => {
     const finished = dragging.current;
     if (!finished) return;
     dragging.current = null;
+    if (finished.kind === "mark") {
+      setNotice(`${markLabelOf(finished.id)}を移動しました`);
+      return;
+    }
     setHistory((current) => [...current.slice(-29), finished.before]);
     setFuture([]);
     setNotice(`${jointLabels[finished.joint]}を移動しました`);
@@ -1232,6 +1327,65 @@ export default function PoseEditor() {
     setNotice(next ? `${jointLabels[next]}に受傷部位マークを付けました` : "受傷部位マークを外しました");
   };
 
+  const nextMarkId = () => {
+    markSeq.current += 1;
+    return `mark-${markSeq.current}`;
+  };
+
+  const addMark = (type: MarkType) => {
+    if (marks.length >= MARKS_LIMIT) {
+      setNotice(`マークは1枚に${MARKS_LIMIT}個までです。不要なマークを削除してください`);
+      return;
+    }
+    const option = markOptions.find((candidate) => candidate.id === type);
+    const anchor = selectedJoint ? pose[selectedJoint] : { x: 200, y: 150 };
+    // 同じ場所に重ねて置いても掴めるよう、2個目以降は少しずらす。
+    const stacked = marks.filter((mark) => Math.hypot(mark.x - anchor.x, mark.y - anchor.y) < 6).length;
+    const stepNumbers = marks.filter((mark) => mark.type === "step").length + 1;
+    const mark: SceneMark = {
+      id: nextMarkId(),
+      type,
+      x: Math.min(390, anchor.x + stacked * 16),
+      y: Math.min(430, anchor.y + stacked * 16),
+      label: type === "step" ? String(stepNumbers) : undefined,
+      ...markDefaults[type],
+    };
+    setMarks((current) => [...current, mark]);
+    setSelectedMarkId(mark.id);
+    setNotice(
+      selectedJoint
+        ? `${jointLabels[selectedJoint]}に「${option?.label ?? "マーク"}」を置きました。ドラッグで移動できます`
+        : `「${option?.label ?? "マーク"}」を置きました。ドラッグで移動できます`,
+    );
+  };
+
+  const selectedMark = marks.find((mark) => mark.id === selectedMarkId) ?? null;
+
+  const markLabelOf = (id: string) => {
+    const mark = marks.find((candidate) => candidate.id === id);
+    return markOptions.find((option) => option.id === mark?.type)?.label ?? "マーク";
+  };
+
+  const updateSelectedMark = (patch: Partial<SceneMark>) => {
+    if (!selectedMarkId) return;
+    setMarks((current) => current.map((mark) => (mark.id === selectedMarkId ? { ...mark, ...patch } : mark)));
+  };
+
+  const deleteSelectedMark = () => {
+    if (!selectedMarkId) return;
+    const label = markLabelOf(selectedMarkId);
+    setMarks((current) => current.filter((mark) => mark.id !== selectedMarkId));
+    setSelectedMarkId(null);
+    setNotice(`「${label}」を削除しました`);
+  };
+
+  const clearMarks = () => {
+    if (!marks.length) return;
+    setMarks([]);
+    setSelectedMarkId(null);
+    setNotice("マークをすべて削除しました");
+  };
+
   const toggleEquipmentFlag = (key: EquipmentFlag) => {
     const label = equipmentFlagOptions.find((option) => option.key === key)?.label ?? "装備";
     setNotice(`${label}を${equipment[key] ? "非表示" : "表示"}にしました`);
@@ -1300,6 +1454,113 @@ export default function PoseEditor() {
   }, [pose, redo, selectedJoint, undo]);
 
   const activeItem = items[activeHand];
+  const suggestedMarks = useMemo(() => suggestedMarksFor(presetId), [presetId]);
+  const selectedMarkOption = selectedMark ? markOptions.find((option) => option.id === selectedMark.type) : null;
+
+  const groupOption = markGroupOptions.find((option) => option.id === markGroup);
+  const groupMarks = markOptions.filter((option) => option.group === markGroup);
+  const selectedIsSign = selectedMark ? isSignMark(selectedMark.type) : false;
+  const toneChoices = selectedIsSign ? signToneOptions : markToneOptions;
+
+  const markButton = (type: MarkType, key?: string) => {
+    const option = markOptions.find((candidate) => candidate.id === type);
+    if (!option) return null;
+    return (
+      <button
+        key={key ?? type}
+        className="item-button mark-button"
+        onClick={() => addMark(type)}
+        title={`${option.label}：${option.hint}`}
+      >
+        <svg viewBox="-46 -46 92 92" aria-hidden="true" className="mark-thumb">
+          <g color={markToneColors[markDefaults[type].tone]}>
+            <MarkGraphic type={type} tone={markDefaults[type].tone} halo={false} />
+          </g>
+        </svg>
+        {option.label}
+      </button>
+    );
+  };
+
+  const markSection = (
+    <div className="setting-group mark-group">
+      <label>注目マーク <strong>絵に足す説明記号</strong></label>
+      <p className="mark-hint">ボタンを押すと絵の中に置きます（関節を選んでいればその位置に）。キャンバス上でドラッグして移動、タップで選び直せます。</p>
+      {suggestedMarks.length > 0 && (
+        <div className="mark-suggest">
+          <span className="mark-suggest-label">この作業でよく使う</span>
+          <div className="item-grid mark-grid">
+            {suggestedMarks.map((type) => markButton(type, `suggest-${type}`))}
+          </div>
+        </div>
+      )}
+      <div className="segmented mark-group-tabs" role="group" aria-label="マークの種類">
+        {markGroupOptions.map((option) => (
+          <button
+            key={option.id}
+            className={markGroup === option.id ? "active" : ""}
+            onClick={() => setMarkGroup(option.id)}
+            aria-pressed={markGroup === option.id}
+          >{option.label}</button>
+        ))}
+      </div>
+      <p className="mark-hint">{groupOption?.note}</p>
+      <div className="item-grid mark-grid">
+        {groupMarks.map((option) => markButton(option.id))}
+      </div>
+      {selectedMark ? (
+        <div className="item-adjust">
+          <label>選択中のマーク <strong>{selectedMarkOption?.label ?? "マーク"}</strong></label>
+          <div className={`segmented ${selectedIsSign ? "" : "cols-3"}`}>
+            {toneChoices.map((tone) => (
+              <button
+                key={tone.id}
+                className={selectedMark.tone === tone.id ? "active" : ""}
+                onClick={() => updateSelectedMark({ tone: tone.id as MarkTone })}
+                aria-pressed={selectedMark.tone === tone.id}
+              >{tone.label}</button>
+            ))}
+          </div>
+          <label htmlFor="mark-scale">大きさ <strong>{Math.round(selectedMark.scale * 100)}%</strong></label>
+          <input
+            id="mark-scale" type="range" min="0.5" max="2.4" step="0.1"
+            value={selectedMark.scale}
+            onChange={(event) => updateSelectedMark({ scale: Number(event.target.value) })}
+          />
+          {selectedMarkOption?.rotatable && (
+            <>
+              <label htmlFor="mark-rotation">向き <strong>{selectedMark.rotation}°</strong></label>
+              <input
+                id="mark-rotation" type="range" min="-180" max="180" step="15"
+                value={selectedMark.rotation}
+                onChange={(event) => updateSelectedMark({ rotation: Number(event.target.value) })}
+              />
+            </>
+          )}
+          {selectedMark.type === "step" && (
+            <>
+              <label htmlFor="mark-label">番号・記号 <strong>2文字まで</strong></label>
+              <input
+                id="mark-label" className="mark-text" type="text" maxLength={2} inputMode="numeric"
+                value={selectedMark.label ?? ""}
+                onChange={(event) => updateSelectedMark({ label: event.target.value })}
+              />
+            </>
+          )}
+          <div className="mark-actions">
+            <button onClick={deleteSelectedMark}>このマークを削除</button>
+            <button onClick={clearMarks}>すべて削除（{marks.length}）</button>
+          </div>
+        </div>
+      ) : (
+        <p className="mark-hint">
+          {marks.length
+            ? `${marks.length}個のマークを配置中。キャンバス上のマークをタップすると色・大きさを変えられます。`
+            : `まだマークはありません（1枚に${MARKS_LIMIT}個まで）。`}
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <main className="app-shell">
@@ -1411,6 +1672,7 @@ export default function PoseEditor() {
                       scene={favorite.scene ?? "none"}
                       showTable={favorite.showTable ?? true}
                       injuryJoint={favorite.injuryJoint ?? null}
+                      marks={favorite.marks ?? []}
                     />
                   </svg>
                   <span>{favorite.name}</span>
@@ -1436,7 +1698,7 @@ export default function PoseEditor() {
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
             <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
-              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} injuryJoint={injuryJoint} onJointPointerDown={onJointPointerDown} />
+              <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} injuryJoint={injuryJoint} marks={marks} selectedMark={selectedMarkId} onJointPointerDown={onJointPointerDown} onMarkPointerDown={onMarkPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
@@ -1446,6 +1708,7 @@ export default function PoseEditor() {
         <aside className="settings-panel panel">
           <div className="panel-heading"><div><span className="step">03</span><h2>装備と見た目</h2></div></div>
           {mode === "simple" ? (
+            <>
             <div className="setting-group equipment-group">
               <label>安全装備 <strong>基本の2つ</strong></label>
               <div className="option-stack">
@@ -1462,6 +1725,8 @@ export default function PoseEditor() {
               </div>
               <p className="mode-hint">手袋・防護服・道具・配色は右上の「拡張」モードで設定できます。</p>
             </div>
+            {markSection}
+            </>
           ) : (
             <>
           <div className="setting-group equipment-group">
@@ -1546,6 +1811,8 @@ export default function PoseEditor() {
               </div>
             )}
           </div>
+
+          {markSection}
 
           <div className="setting-group compact-style-group">
             <label>配色モード <strong>原則2色</strong></label>

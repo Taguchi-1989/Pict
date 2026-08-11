@@ -17,6 +17,113 @@ export type SceneType =
   | "none" | "cutting-table" | "scissor-table" | "wiping-table" | "overhead-crane"
   | "measuring-table" | "welding-table" | "impact-inspection" | "box-carry";
 
+/**
+ * 人物とは別に、資料側の説明として絵に足す注目マーク。
+ *
+ * 2系統ある：
+ * - 注釈マーク：ぶつけた箇所のギザギザ、注目の丸、手順番号など。色は赤・青・黒から選ぶ。
+ * - 警告マーク：黄色い三角の標識で「そこに何の危険源があるか」を示す。
+ *   配色が意味を持つため、色は「標準色／白黒（モノクロ印刷用）」の2択として扱う。
+ *
+ * 禁止（赤丸）・着用指示（青丸）・GHS（化学品）は、選択肢が増えて迷うことと、
+ * 薬品の扱いは資料の別ページで説明するという運用に合わせて、あえて持たない。
+ */
+export type MarkType =
+  // 注釈
+  | "impact" | "circle" | "frame" | "arrow"
+  | "caution" | "ban" | "pinch" | "step"
+  // 警告（危険源）
+  | "warn-pinch" | "warn-entangle" | "warn-electric" | "warn-hot"
+  | "warn-slip" | "warn-overhead" | "warn-falling" | "warn-oxygen";
+
+/** マークの色。人物の配色とは独立させる。警告マークではalert＝標準色、ink＝白黒として使う。 */
+export type MarkTone = "alert" | "info" | "ink";
+
+export type SceneMark = {
+  id: string;
+  type: MarkType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  tone: MarkTone;
+  /** 手順番号マークに表示する文字（1〜2文字）。 */
+  label?: string;
+};
+
+export const markToneColors: Record<MarkTone, string> = {
+  alert: "#d63a2b",
+  info: "#1f6fb2",
+  ink: "#17211b",
+};
+
+export const markToneOptions: { id: MarkTone; label: string }[] = [
+  { id: "alert", label: "赤" },
+  { id: "info", label: "青" },
+  { id: "ink", label: "黒" },
+];
+
+/** 警告マーク用の色切り替え。標識の配色を崩さないよう、標準色か白黒かだけを選ばせる。 */
+export const signToneOptions: { id: MarkTone; label: string }[] = [
+  { id: "alert", label: "標準色" },
+  { id: "ink", label: "白黒" },
+];
+
+export type MarkGroup = "annotation" | "warning";
+
+export const markGroupOptions: { id: MarkGroup; label: string; note: string }[] = [
+  { id: "annotation", label: "注釈", note: "ぶつけた箇所や注目させたい場所を示す記号" },
+  { id: "warning", label: "危険源", note: "黄色の三角＝そこに危険があることを示す警告標識" },
+];
+
+export const markOptions: {
+  id: MarkType;
+  group: MarkGroup;
+  label: string;
+  hint: string;
+  /** 角度スライダーを出すかどうか（向きが意味を持つマークだけ）。 */
+  rotatable: boolean;
+}[] = [
+  { id: "impact", group: "annotation", label: "衝突（ギザギザ）", hint: "ぶつけた・当たった箇所", rotatable: false },
+  { id: "circle", group: "annotation", label: "注目の丸", hint: "見てほしい箇所を丸で囲む", rotatable: false },
+  { id: "frame", group: "annotation", label: "範囲の破線枠", hint: "注目させたい範囲を四角で囲む", rotatable: false },
+  { id: "arrow", group: "annotation", label: "矢印", hint: "動きの向き・力のかかる向き", rotatable: true },
+  { id: "caution", group: "annotation", label: "注意（△!）", hint: "危険源・注意点", rotatable: false },
+  { id: "ban", group: "annotation", label: "禁止（○＼）", hint: "してはいけない動作", rotatable: false },
+  { id: "pinch", group: "annotation", label: "はさまれ", hint: "はさまれ・巻き込まれの向き", rotatable: true },
+  { id: "step", group: "annotation", label: "手順番号", hint: "作業手順書の番号付け", rotatable: false },
+
+  { id: "warn-pinch", group: "warning", label: "はさまれ注意", hint: "ローラー・プレス・治具にはさまれる危険源", rotatable: false },
+  { id: "warn-entangle", group: "warning", label: "巻き込まれ注意", hint: "回転部・歯車・ベルトへの巻き込み", rotatable: false },
+  { id: "warn-electric", group: "warning", label: "感電注意", hint: "充電部・活線作業の危険源", rotatable: false },
+  { id: "warn-hot", group: "warning", label: "高温注意", hint: "高温面・蒸気・溶接部でのやけど", rotatable: false },
+  { id: "warn-slip", group: "warning", label: "転倒注意", hint: "床の油・水・段差によるすべり", rotatable: false },
+  { id: "warn-overhead", group: "warning", label: "頭上注意", hint: "梁・配管への激突", rotatable: false },
+  { id: "warn-falling", group: "warning", label: "落下物注意", hint: "上からの飛来・落下", rotatable: false },
+  { id: "warn-oxygen", group: "warning", label: "酸欠・窒息注意", hint: "タンク・ピット・不活性ガス置換部", rotatable: false },
+];
+
+const signDefault = { scale: 0.85, rotation: 0, tone: "alert" as MarkTone };
+
+export const markDefaults: Record<MarkType, { scale: number; rotation: number; tone: MarkTone }> = {
+  impact: { scale: 1, rotation: 0, tone: "alert" },
+  circle: { scale: 1.2, rotation: 0, tone: "alert" },
+  frame: { scale: 1.3, rotation: 0, tone: "alert" },
+  arrow: { scale: 1, rotation: 0, tone: "alert" },
+  caution: { scale: 1, rotation: 0, tone: "alert" },
+  ban: { scale: 1.1, rotation: 0, tone: "alert" },
+  pinch: { scale: 1, rotation: 0, tone: "alert" },
+  step: { scale: 1, rotation: 0, tone: "ink" },
+  "warn-pinch": signDefault,
+  "warn-entangle": signDefault,
+  "warn-electric": signDefault,
+  "warn-hot": signDefault,
+  "warn-slip": signDefault,
+  "warn-overhead": signDefault,
+  "warn-falling": signDefault,
+  "warn-oxygen": signDefault,
+};
+
 export type PresetItem = { type: ItemType; rotation: number; scale: number };
 export type PresetDefaults = {
   helmet?: boolean;
@@ -432,4 +539,59 @@ export const jointLabels: Record<JointName, string> = {
 
 export function clonePose(pose: Pose): Pose {
   return Object.fromEntries(Object.entries(pose).map(([key, point]) => [key, { ...point }])) as Pose;
+}
+
+/**
+ * 「この作業なら、まずこの危険源を示す」という対応表。
+ * 労災報告の事故の型と、作業手順書のKY（危険予知）でよく挙がるものを優先した。
+ * ここに無いプリセットは用途タグから拾う。
+ */
+const presetHazards: Record<string, MarkType[]> = {
+  "drill-wall": ["warn-entangle"],
+  "fasten-overhead": ["warn-falling", "warn-overhead"],
+  "tighten-pipe": ["warn-pinch"],
+  "hammer-work": ["warn-pinch"],
+  "saw-work": ["warn-pinch"],
+  "cutter-table": ["warn-pinch"],
+  "scissors-table": ["warn-pinch"],
+  "watering-work": ["warn-slip"],
+  "brush-clean": ["warn-slip"],
+  "flashlight-inspect": ["warn-overhead"],
+  "impact-inspection": ["warn-overhead"],
+  "height-check": ["warn-falling"],
+  "crane-remote": ["warn-falling"],
+  "welding-work": ["warn-hot"],
+  lift: ["warn-slip"],
+  push: ["warn-slip"],
+  "carry-box": ["warn-slip", "warn-overhead"],
+
+  "slip-fall": ["warn-slip"],
+  "height-fall": ["warn-falling"],
+  "caught-in": ["warn-entangle", "warn-pinch"],
+  "falling-object": ["warn-falling"],
+  "hand-cut": ["warn-pinch"],
+  "burn-contact": ["warn-hot"],
+  "electric-shock": ["warn-electric"],
+  "back-strain": ["warn-slip"],
+  "head-bump": ["warn-overhead"],
+  "heat-exhaustion": ["warn-hot"],
+  "lying-down": ["warn-oxygen"],
+};
+
+const tagHazards: Partial<Record<PresetTag, MarkType[]>> = {
+  高所作業: ["warn-falling"],
+  工具作業: ["warn-pinch"],
+  "機械・設備": ["warn-entangle", "warn-pinch"],
+  電気: ["warn-electric"],
+  "高温・溶接": ["warn-hot"],
+  "運搬・重量物": ["warn-slip"],
+  "点検・測定": ["warn-overhead"],
+  清掃: ["warn-slip"],
+};
+
+/** プリセットに対する推奨マーク（最大4件）。ワンタップで貼れるようにするための候補。 */
+export function suggestedMarksFor(presetId: string): MarkType[] {
+  const preset = posePresets.find((candidate) => candidate.id === presetId);
+  const fromTags = preset ? preset.tags.flatMap((tag) => tagHazards[tag] ?? []) : [];
+  return [...new Set([...(presetHazards[presetId] ?? []), ...fromTags])].slice(0, 4);
 }
