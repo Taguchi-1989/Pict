@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -102,6 +103,25 @@ const equipmentFlagOptions: { key: EquipmentFlag; label: string; icon: string; i
   { key: "vest", label: "反射ベスト", icon: "▥" },
 ];
 
+/** 保護具は縦一列に並べず、着ける部位ごとにまとめて出す。 */
+const equipmentParts: { id: string; label: string; flags: EquipmentFlag[] }[] = [
+  { id: "head", label: "頭部・顔", flags: ["goggles", "dustMask", "earMuffs"] },
+  { id: "hand", label: "手", flags: [] },
+  { id: "body", label: "体", flags: ["apron", "vest", "harness"] },
+  { id: "foot", label: "足", flags: ["safetyShoes"] },
+];
+
+/** 簡単モードでは触れない装備・道具が付いているか。付いていれば拡張モードで開く。 */
+function needsAdvanced(equipment: Equipment, items: HeldItems, scene: SceneType) {
+  return (
+    items.left.type !== "none" || items.right.type !== "none" || scene !== "none" ||
+    equipment.gloves !== "none" || equipment.bodysuit !== "none" ||
+    equipment.headgear === "cap" || equipment.headgear === "plastic-cap" ||
+    equipment.harness || equipment.apron || equipment.goggles ||
+    equipment.dustMask || equipment.earMuffs || equipment.vest
+  );
+}
+
 type Hand = "left" | "right";
 type HeldItem = { type: ItemType; rotation: number; scale: number };
 type HeldItems = Record<Hand, HeldItem>;
@@ -149,6 +169,11 @@ type Favorite = {
 
 const simplePresetIds = ["neutral", "walk", "sit"];
 const MODE_STORAGE_KEY = "pict-editor-mode";
+const COLUMNS_STORAGE_KEY = "pict-columns";
+/** 左右のパネル幅（px）。境界線のドラッグで変えられ、ダブルクリックでここへ戻す。 */
+const defaultColumns = { left: 320, right: 350 };
+const COLUMN_MIN = 230;
+const COLUMN_MAX = 560;
 const FAVORITES_STORAGE_KEY = "pict-favorites";
 const FAVORITES_LIMIT = 24;
 /** 1枚に置けるマークの上限。これ以上増やすと図が読めなくなる。 */
@@ -217,6 +242,18 @@ function defaultsToItems(defaults: PresetDefaults): HeldItems {
 
 function defaultsToScene(defaults: PresetDefaults): SceneType {
   return defaults.scene ?? "none";
+}
+
+/** 首から頭へのベクトルが真上から何度傾いているか。頭に付く装備の回転角に使う。 */
+function headTiltOf(pose: Pose): number {
+  const dx = pose.head.x - pose.neck.x;
+  const dy = pose.neck.y - pose.head.y;
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return 0;
+  return (Math.atan2(dx, dy) * 180) / Math.PI;
+}
+
+function clampColumn(width: number) {
+  return Math.round(Math.max(COLUMN_MIN, Math.min(COLUMN_MAX, width)));
 }
 
 function midpoint(a: Point, b: Point): Point {
@@ -570,7 +607,7 @@ function SceneSafetyOverlay({ scene, pose }: { scene: SceneType; pose: Pose }) {
   if (scene !== "welding-table") return null;
   const { head } = pose;
   return (
-    <g className="scene-layer figure-attached" transform={`translate(${head.x + 9} ${head.y - 1}) rotate(8)`}>
+    <g className="scene-layer figure-attached" transform={`rotate(${headTiltOf(pose).toFixed(1)} ${head.x} ${head.y}) translate(${head.x + 9} ${head.y - 1}) rotate(8)`}>
       <path d="M -29 -31 Q 3 -42 31 -24 L 28 27 Q 6 43 -25 28 Z" fill="#252b29" stroke="#111" strokeWidth="5" />
       <rect x="-5" y="-18" width="31" height="20" rx="3" fill="#86a6ae" stroke="#111" strokeWidth="4" />
       <path d="M 0 -13 H 21" stroke="white" strokeWidth="3" opacity=".65" />
@@ -607,6 +644,9 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
   const isSide = view === "side";
   const rearOpacity = isSide ? 0.38 : 1;
   const facing = head.x >= hipMid.x ? 1 : -1;
+  // 首から頭へのベクトルを頭の向きとみなし、ヘルメットや面体をその角度で傾ける。
+  const headTilt = headTiltOf(pose);
+  const headTransform = `rotate(${headTilt.toFixed(1)} ${head.x} ${head.y})`;
   const torsoPath = `M ${pose.shoulderL.x} ${pose.shoulderL.y} Q ${shoulderMid.x} ${shoulderMid.y - 5} ${pose.shoulderR.x} ${pose.shoulderR.y} L ${pose.hipR.x} ${pose.hipR.y} Q ${hipMid.x} ${hipMid.y + 4} ${pose.hipL.x} ${pose.hipL.y} Z`;
   const limbPath = (a: Point, b: Point, c: Point) => `M ${a.x} ${a.y} L ${b.x} ${b.y} L ${c.x} ${c.y}`;
   const clean = equipment.bodysuit === "cleanroom";
@@ -724,7 +764,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.headgear === "helmet" && (
-        <g className="equipment-layer helmet-layer" stroke="var(--primary-color)" strokeWidth="4" strokeLinejoin="round">
+        <g className="equipment-layer helmet-layer" transform={headTransform} stroke="var(--primary-color)" strokeWidth="4" strokeLinejoin="round">
           <path
             d={`M ${head.x - style.headRadius - 3} ${head.y - 8} Q ${head.x - style.headRadius + 1} ${head.y - style.headRadius - 23} ${head.x} ${head.y - style.headRadius - 25} Q ${head.x + style.headRadius - 2} ${head.y - style.headRadius - 21} ${head.x + style.headRadius + 3} ${head.y - 8} Z`}
             fill="var(--primary-color)"
@@ -735,7 +775,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.headgear === "cap" && (
-        <g className="equipment-layer cap-layer" strokeLinejoin="round" strokeLinecap="round">
+        <g className="equipment-layer cap-layer" transform={headTransform} strokeLinejoin="round" strokeLinecap="round">
           <path
             d={`M ${head.x - headR + 3} ${head.y - 8} Q ${head.x - headR + 2} ${head.y - headR - 11} ${head.x} ${head.y - headR - 11} Q ${head.x + headR - 2} ${head.y - headR - 11} ${head.x + headR - 3} ${head.y - 8} Z`}
             fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="3"
@@ -748,7 +788,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.headgear === "plastic-cap" && (
-        <g className="equipment-layer plastic-cap-layer" strokeLinejoin="round" strokeLinecap="round">
+        <g className="equipment-layer plastic-cap-layer" transform={headTransform} strokeLinejoin="round" strokeLinecap="round">
           <path
             d={`M ${head.x - headR - 4} ${head.y - 1} Q ${head.x - headR - 5} ${head.y - headR - 13} ${head.x} ${head.y - headR - 13} Q ${head.x + headR + 5} ${head.y - headR - 13} ${head.x + headR + 4} ${head.y - 1} Z`}
             fill="white" opacity=".94" stroke="var(--secondary-color)" strokeWidth="4"
@@ -757,7 +797,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.goggles && (
-        <g className="equipment-layer goggle-layer" strokeLinejoin="round" strokeLinecap="round">
+        <g className="equipment-layer goggle-layer" transform={headTransform} strokeLinejoin="round" strokeLinecap="round">
           <path d={`M ${head.x - headR - 4} ${head.y - 5} L ${head.x + headR + 4} ${head.y - 5}`} fill="none" stroke="var(--secondary-color)" strokeWidth="5" />
           <rect
             x={head.x - headR * 0.62 + (isSide ? facing * headR * 0.28 : 0)}
@@ -770,7 +810,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.dustMask && (
-        <g className="equipment-layer mask-layer" strokeLinejoin="round" strokeLinecap="round">
+        <g className="equipment-layer mask-layer" transform={headTransform} strokeLinejoin="round" strokeLinecap="round">
           <path d={`M ${head.x - headR} ${head.y + 2} L ${head.x - headR * 0.5} ${head.y + headR * 0.4} M ${head.x + headR} ${head.y + 2} L ${head.x + headR * 0.5} ${head.y + headR * 0.4}`} fill="none" stroke="var(--secondary-color)" strokeWidth="3.5" />
           <ellipse
             cx={head.x + (isSide ? facing * headR * 0.3 : 0)}
@@ -783,7 +823,7 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
         </g>
       )}
       {equipment.earMuffs && (
-        <g className="equipment-layer earmuff-layer" strokeLinecap="round">
+        <g className="equipment-layer earmuff-layer" transform={headTransform} strokeLinecap="round">
           <path d={`M ${head.x - headR * 0.86} ${head.y} Q ${head.x} ${head.y - headR - 12} ${head.x + headR * 0.86} ${head.y}`} fill="none" stroke="var(--secondary-color)" strokeWidth="5.5" />
           <circle cx={head.x - headR * 0.86} cy={head.y + 3} r="9" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
           <circle cx={head.x + headR * 0.86} cy={head.y + 3} r="9" fill="var(--secondary-color)" stroke="var(--primary-color)" strokeWidth="2.5" />
@@ -1047,9 +1087,11 @@ export default function PoseEditor() {
   const [mode, setMode] = useState<EditorMode>("simple");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [columns, setColumns] = useState(defaultColumns);
   const svgRef = useRef<SVGSVGElement>(null);
   // 描画ごとに変わらない連番でマークIDを作る（描画中の Date.now は不安定なため）。
   const markSeq = useRef(0);
+  const columnDrag = useRef<{ side: "left" | "right"; startX: number; startWidth: number } | null>(null);
   const dragging = useRef<
     | { kind: "joint"; joint: JointName; before: Pose }
     | { kind: "mark"; id: string }
@@ -1062,6 +1104,17 @@ export default function PoseEditor() {
       const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (storedMode === "simple" || storedMode === "advanced") setMode(storedMode);
+      const storedColumns = localStorage.getItem(COLUMNS_STORAGE_KEY);
+      if (storedColumns) {
+        const parsed: unknown = JSON.parse(storedColumns);
+        if (parsed && typeof parsed === "object") {
+          const { left, right } = parsed as Partial<typeof defaultColumns>;
+          setColumns({
+            left: clampColumn(left ?? defaultColumns.left),
+            right: clampColumn(right ?? defaultColumns.right),
+          });
+        }
+      }
       const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
@@ -1072,6 +1125,40 @@ export default function PoseEditor() {
       // 端末保存が使えない環境（プライベートモード等）では既定値のまま
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(columns));
+    } catch { /* 保存できなくても動作は継続 */ }
+  }, [columns]);
+
+  const startColumnDrag = (side: "left" | "right", event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch { /* ポインターが無効な環境でも掴めるようにする */ }
+    columnDrag.current = { side, startX: event.clientX, startWidth: columns[side] };
+  };
+
+  const moveColumnDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = columnDrag.current;
+    if (!drag) return;
+    const delta = event.clientX - drag.startX;
+    const width = clampColumn(drag.side === "left" ? drag.startWidth + delta : drag.startWidth - delta);
+    setColumns((current) => ({ ...current, [drag.side]: width }));
+  };
+
+  const endColumnDrag = () => {
+    columnDrag.current = null;
+  };
+
+  const nudgeColumn = (side: "left" | "right", event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const step = (event.key === "ArrowLeft" ? -16 : 16) * (side === "left" ? 1 : -1);
+    setColumns((current) => ({ ...current, [side]: clampColumn(current[side] + step) }));
+  };
 
   const changeMode = (next: EditorMode) => {
     setMode(next);
@@ -1114,19 +1201,30 @@ export default function PoseEditor() {
   const loadFavorite = (id: string) => {
     const favorite = favorites.find((candidate) => candidate.id === id);
     if (!favorite) return;
+    const favoriteEquipment = { ...emptyEquipment, ...favorite.equipment };
+    const favoriteItems = {
+      left: { ...emptyItems.left, ...favorite.items?.left },
+      right: { ...emptyItems.right, ...favorite.items?.right },
+    };
+    const favoriteScene = favorite.scene ?? "none";
+    // 簡単モードの画面には無い装備・道具が入っていたら、操作できるよう拡張モードで開く。
+    const openAsAdvanced = mode === "simple" && needsAdvanced(favoriteEquipment, favoriteItems, favoriteScene);
+    if (openAsAdvanced) changeMode("advanced");
     setHistory((current) => [...current.slice(-29), clonePose(pose)]);
     setFuture([]);
     setPose(clonePose(favorite.pose));
     setView(favorite.view);
-    setEquipment({ ...emptyEquipment, ...favorite.equipment });
-    setItems({ left: { ...emptyItems.left, ...favorite.items?.left }, right: { ...emptyItems.right, ...favorite.items?.right } });
-    setScene(favorite.scene ?? "none");
+    setEquipment(favoriteEquipment);
+    setItems(favoriteItems);
+    setScene(favoriteScene);
     setShowTable(favorite.showTable ?? true);
     setSelectedJoint(null);
     setInjuryJoint(favorite.injuryJoint ?? null);
     setMarks((favorite.marks ?? []).map((mark) => ({ ...mark, id: nextMarkId() })));
     setSelectedMarkId(null);
-    setNotice(`「${favorite.name}」を読み込みました`);
+    setNotice(openAsAdvanced
+      ? `「${favorite.name}」を読み込みました（道具や装備を含むため拡張モードにしました）`
+      : `「${favorite.name}」を読み込みました`);
   };
 
   const applyDetectedFigure = (figure: DetectedFigure, index: number) => {
@@ -1149,13 +1247,16 @@ export default function PoseEditor() {
   };
 
   const visiblePresets = useMemo(
-    () => posePresets.filter((preset) => {
-      if (mode === "simple") return simplePresetIds.includes(preset.id);
-      if (tagFilter && !preset.tags.includes(tagFilter)) return false;
-      if (category === "すべて") return true;
-      if (category === "横向き") return preset.view === "side";
-      return preset.category === category;
-    }),
+    () => posePresets
+      .filter((preset) => {
+        if (mode === "simple") return simplePresetIds.includes(preset.id);
+        if (tagFilter && !preset.tags.includes(tagFilter)) return false;
+        if (category === "すべて") return true;
+        if (category === "横向き") return preset.view === "side";
+        return preset.category === category;
+      })
+      // 数が多いので、資料でよく使う順に前へ出す（同順位は元の並び）。
+      .sort((a, b) => a.rank - b.rank),
     [category, mode, tagFilter],
   );
 
@@ -1454,6 +1555,8 @@ export default function PoseEditor() {
   }, [pose, redo, selectedJoint, undo]);
 
   const activeItem = items[activeHand];
+  // 簡単モードなのに拡張モードの装備・道具が残っている状態を、画面から気づけるようにする。
+  const hiddenAdvanced = mode === "simple" && needsAdvanced(equipment, items, scene);
   const suggestedMarks = useMemo(() => suggestedMarksFor(presetId), [presetId]);
   const selectedMarkOption = selectedMark ? markOptions.find((option) => option.id === selectedMark.type) : null;
 
@@ -1581,8 +1684,24 @@ export default function PoseEditor() {
         </div>
       </header>
 
-      <section className="workspace" aria-label="ピクトグラム編集画面">
+      <section
+        className="workspace"
+        aria-label="ピクトグラム編集画面"
+        style={{ "--col-left": `${columns.left}px`, "--col-right": `${columns.right}px` } as CSSProperties}
+      >
         <aside className="preset-panel panel">
+          <button
+            className="col-resizer left"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="姿勢パネルの幅を変える（矢印キーでも調整、ダブルクリックで既定に戻す）"
+            onPointerDown={(event) => startColumnDrag("left", event)}
+            onPointerMove={moveColumnDrag}
+            onPointerUp={endColumnDrag}
+            onPointerCancel={endColumnDrag}
+            onKeyDown={(event) => nudgeColumn("left", event)}
+            onDoubleClick={() => setColumns(defaultColumns)}
+          />
           <div className="panel-heading">
             <div><span className="step">01</span><h2>姿勢を選ぶ</h2></div>
             <span className="count">{visiblePresets.length} POSES</span>
@@ -1630,6 +1749,7 @@ export default function PoseEditor() {
                   />
                 </svg>
                 <span>{preset.name}</span>
+                {mode === "advanced" && preset.rank === 1 && <b className="preset-rank">よく使う</b>}
                 {mode === "advanced" && preset.tags.length > 0 && (
                   <em className="preset-tags">{preset.tags.join("・")}</em>
                 )}
@@ -1706,9 +1826,27 @@ export default function PoseEditor() {
         </section>
 
         <aside className="settings-panel panel">
+          <button
+            className="col-resizer right"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="装備パネルの幅を変える（矢印キーでも調整、ダブルクリックで既定に戻す）"
+            onPointerDown={(event) => startColumnDrag("right", event)}
+            onPointerMove={moveColumnDrag}
+            onPointerUp={endColumnDrag}
+            onPointerCancel={endColumnDrag}
+            onKeyDown={(event) => nudgeColumn("right", event)}
+            onDoubleClick={() => setColumns(defaultColumns)}
+          />
           <div className="panel-heading"><div><span className="step">03</span><h2>装備と見た目</h2></div></div>
           {mode === "simple" ? (
             <>
+            {hiddenAdvanced && (
+              <div className="mode-banner">
+                <p>いま表示中の図には、簡単モードでは触れない装備や道具が含まれています。</p>
+                <button onClick={() => changeMode("advanced")}>拡張モードで開く</button>
+              </div>
+            )}
             <div className="setting-group equipment-group">
               <label>安全装備 <strong>基本の2つ</strong></label>
               <div className="option-stack">
@@ -1730,46 +1868,52 @@ export default function PoseEditor() {
           ) : (
             <>
           <div className="setting-group equipment-group">
-            <label>安全装備 <strong>個別にON / OFF</strong></label>
-            <div className="equip-rows">
-              <label>頭部</label>
-              <div className="segmented cols-4">
-                {headgearOptions.map((option) => (
-                  <button key={option.id} className={equipment.headgear === option.id ? "active" : ""} onClick={() => chooseHeadgear(option.id)} aria-pressed={equipment.headgear === option.id}>{option.label}</button>
-                ))}
+            <label>保護具 <strong>着ける部位ごとに</strong></label>
+            {equipmentParts.map((part) => (
+              <div className="equip-block" key={part.id}>
+                <span className="equip-block-label">{part.label}</span>
+                {part.id === "head" && (
+                  <div className="segmented cols-4">
+                    {headgearOptions.map((option) => (
+                      <button key={option.id} className={equipment.headgear === option.id ? "active" : ""} onClick={() => chooseHeadgear(option.id)} aria-pressed={equipment.headgear === option.id}>{option.label}</button>
+                    ))}
+                  </div>
+                )}
+                {part.id === "hand" && (
+                  <div className="segmented cols-4">
+                    {gloveOptions.map((option) => (
+                      <button key={option.id} className={equipment.gloves === option.id ? "active" : ""} onClick={() => chooseGloves(option.id)} aria-pressed={equipment.gloves === option.id}>{option.label}</button>
+                    ))}
+                  </div>
+                )}
+                {part.id === "body" && (
+                  <div className="segmented cols-3">
+                    {bodysuitOptions.map((option) => (
+                      <button key={option.id} className={equipment.bodysuit === option.id ? "active" : ""} onClick={() => chooseBodysuit(option.id)} aria-pressed={equipment.bodysuit === option.id}>{option.label}</button>
+                    ))}
+                  </div>
+                )}
+                {part.flags.length > 0 && (
+                  <div className="chip-grid">
+                    {part.flags.map((key) => {
+                      const flag = equipmentFlagOptions.find((option) => option.key === key)!;
+                      return (
+                        <button
+                          key={key}
+                          className={equipment[key] ? "equip-chip active" : "equip-chip"}
+                          onClick={() => toggleEquipmentFlag(key)}
+                          aria-pressed={equipment[key]}
+                          title={equipment[key] ? (flag.onNote ?? `${flag.label}を表示中`) : `${flag.label}は非表示`}
+                        >
+                          <span className={`chip-icon ${flag.iconClass ?? "glyph-icon"}`} aria-hidden="true">{flag.icon}</span>
+                          {flag.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <label>手袋</label>
-              <div className="segmented cols-4">
-                {gloveOptions.map((option) => (
-                  <button key={option.id} className={equipment.gloves === option.id ? "active" : ""} onClick={() => chooseGloves(option.id)} aria-pressed={equipment.gloves === option.id}>{option.label}</button>
-                ))}
-              </div>
-              <label>全身</label>
-              <div className="segmented cols-3">
-                {bodysuitOptions.map((option) => (
-                  <button key={option.id} className={equipment.bodysuit === option.id ? "active" : ""} onClick={() => chooseBodysuit(option.id)} aria-pressed={equipment.bodysuit === option.id}>{option.label}</button>
-                ))}
-              </div>
-            </div>
-            <div className="option-stack">
-              {equipmentFlagOptions.map((flag) => (
-                <button key={flag.key} className={equipment[flag.key] ? "option-toggle active" : "option-toggle"} onClick={() => toggleEquipmentFlag(flag.key)} aria-pressed={equipment[flag.key]}>
-                  <span className={`option-icon ${flag.iconClass ?? "glyph-icon"}`} aria-hidden="true">{flag.icon}</span>
-                  <span><strong>{flag.label}</strong><small>{equipment[flag.key] ? (flag.onNote ?? "表示中") : "非表示"}</small></span>
-                  <i>{equipment[flag.key] ? "ON" : "OFF"}</i>
-                </button>
-              ))}
-              <button
-                className={showTable && sceneHasTable(scene) ? "option-toggle active" : "option-toggle"}
-                onClick={() => setShowTable((current) => !current)}
-                aria-pressed={showTable}
-                disabled={!sceneHasTable(scene)}
-              >
-                <span className="option-icon table-icon" aria-hidden="true" />
-                <span><strong>作業台</strong><small>{sceneHasTable(scene) ? (showTable ? "表示中" : "非表示") : "このプリセットにはありません"}</small></span>
-                <i>{showTable && sceneHasTable(scene) ? "ON" : "OFF"}</i>
-              </button>
-            </div>
+            ))}
           </div>
 
           <div className="setting-group depth-group">
@@ -1784,6 +1928,16 @@ export default function PoseEditor() {
                 <span className="option-icon grid-icon" aria-hidden="true" />
                 <span><strong>床グリッド</strong><small>{floorGrid ? "表示中（アイソメ風）" : "非表示"}</small></span>
                 <i>{floorGrid ? "ON" : "OFF"}</i>
+              </button>
+              <button
+                className={showTable && sceneHasTable(scene) ? "option-toggle active" : "option-toggle"}
+                onClick={() => setShowTable((current) => !current)}
+                aria-pressed={showTable}
+                disabled={!sceneHasTable(scene)}
+              >
+                <span className="option-icon table-icon" aria-hidden="true" />
+                <span><strong>作業台</strong><small>{sceneHasTable(scene) ? (showTable ? "表示中" : "非表示") : "このプリセットにはありません"}</small></span>
+                <i>{showTable && sceneHasTable(scene) ? "ON" : "OFF"}</i>
               </button>
             </div>
             <a className="template-link" href="/work-template-iso.svg" download>ワーク用アイソメテンプレSVGをダウンロード</a>
