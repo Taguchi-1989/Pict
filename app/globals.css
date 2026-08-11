@@ -242,17 +242,30 @@ button { color: inherit; }
   fill: #fff;
   stroke: #7d8b80;
   stroke-width: 2.5;
+  /* 触っていないときは小さく薄くして、図そのものを見やすくする。
+     rはCSSの幾何プロパティ。対応しない古い環境では属性の大きさのまま表示される。 */
+  r: 4.2;
+  stroke-width: 0;
+  opacity: .82;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .14));
-  transition: r .12s ease, fill .12s ease;
+  transition: r .14s ease, fill .12s ease, opacity .16s ease;
 }
+.editor-canvas:hover .joint-handle { r: 8; stroke-width: 2.5px; opacity: 1; }
+.joint-handle.is-selected { r: 10; stroke-width: 2.5px; opacity: 1; }
 .joint-hit-area:hover + .joint-handle, .joint-handle.is-selected { fill: var(--accent); stroke: var(--ink); }
 .mark-handle {
   pointer-events: none;
   fill: #fff;
   stroke: #d63a2b;
   stroke-width: 2.5;
+  r: 3.6;
+  stroke-width: 0;
+  opacity: .85;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .18));
+  transition: r .14s ease, opacity .16s ease;
 }
+.editor-canvas:hover .mark-handle { r: 6; stroke-width: 2.5px; opacity: 1; }
+.mark-handle.is-selected { r: 8; stroke-width: 2.5px; opacity: 1; }
 .joint-hit-area:hover + .mark-handle, .mark-handle.is-selected { fill: #d63a2b; stroke: #fff; }
 .figure-root .scene-layer [fill]:not([fill="none"]):not([fill="white"]),
 .figure-root .scene-layer[fill]:not([fill="none"]):not([fill="white"]) { fill: var(--secondary-color); }
@@ -606,6 +619,12 @@ button:focus-visible, input:focus-visible, .joint-hit-area:focus-visible { outli
   .settings-panel { display: block; }
   .settings-panel .panel-heading { display: flex; }
   .item-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* タッチ端末はホバーが無いので、薄くしすぎず操作点が見える濃さにする。 */
+@media (hover: none) {
+  .joint-handle { r: 8; stroke-width: 2.5px; opacity: .9; }
+  .mark-handle { r: 6; stroke-width: 2.5px; opacity: .9; }
 }
 
 @media (prefers-reduced-motion: reduce) {

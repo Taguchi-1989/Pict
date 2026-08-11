@@ -1014,6 +1014,18 @@ function Figure({
 
 type ExportScope = "full" | "figure";
 
+/** Undo／Redoで戻す単位。姿勢とマークは同じ「編集」なので、まとめて1手として扱う。 */
+type EditSnapshot = { pose: Pose; marks: SceneMark[] };
+
+function cloneSnapshot(snapshot: EditSnapshot): EditSnapshot {
+  return { pose: clonePose(snapshot.pose), marks: snapshot.marks.map((mark) => ({ ...mark })) };
+}
+
+/** 同じ状態を二重に積まないための比較。同じ手順で作った値どうしなので文字列比較で足りる。 */
+function sameSnapshot(a: EditSnapshot, b: EditSnapshot) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function serializeSvg(source: SVGSVGElement, style: FigureStyle, pose: Pose, scope: ExportScope) {
   const root = source.cloneNode(true) as SVGSVGElement;
   root.querySelectorAll(".editor-only").forEach((node) => node.remove());
@@ -1081,8 +1093,8 @@ export default function PoseEditor() {
   const [marks, setMarks] = useState<SceneMark[]>([]);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   const [markGroup, setMarkGroup] = useState<MarkGroup>("annotation");
-  const [history, setHistory] = useState<Pose[]>([]);
-  const [future, setFuture] = useState<Pose[]>([]);
+  const [history, setHistory] = useState<EditSnapshot[]>([]);
+  const [future, setFuture] = useState<EditSnapshot[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
   const [mode, setMode] = useState<EditorMode>("simple");
   const [photoOpen, setPhotoOpen] = useState(false);
@@ -1093,8 +1105,8 @@ export default function PoseEditor() {
   const markSeq = useRef(0);
   const columnDrag = useRef<{ side: "left" | "right"; startX: number; startWidth: number } | null>(null);
   const dragging = useRef<
-    | { kind: "joint"; joint: JointName; before: Pose }
-    | { kind: "mark"; id: string }
+    | { kind: "joint"; joint: JointName; before: EditSnapshot }
+    | { kind: "mark"; id: string; before: EditSnapshot }
     | null
   >(null);
 
@@ -1160,6 +1172,21 @@ export default function PoseEditor() {
     setColumns((current) => ({ ...current, [side]: clampColumn(current[side] + step) }));
   };
 
+  const snapshot = useCallback((): EditSnapshot => ({
+    pose: clonePose(pose),
+    marks: marks.map((mark) => ({ ...mark })),
+  }), [marks, pose]);
+
+  /** いまの状態を1手として履歴へ積む。変更を加える直前に呼ぶ。 */
+  const pushHistory = useCallback((before?: EditSnapshot) => {
+    const entry = before ?? snapshot();
+    // スライダーを押しただけで値が変わらなかったときなど、空振りの1手は積まない。
+    const last = history.at(-1);
+    if (last && sameSnapshot(last, entry)) return;
+    setHistory((current) => [...current.slice(-29), entry]);
+    setFuture([]);
+  }, [history, snapshot]);
+
   const changeMode = (next: EditorMode) => {
     setMode(next);
     try {
@@ -1210,8 +1237,7 @@ export default function PoseEditor() {
     // 簡単モードの画面には無い装備・道具が入っていたら、操作できるよう拡張モードで開く。
     const openAsAdvanced = mode === "simple" && needsAdvanced(favoriteEquipment, favoriteItems, favoriteScene);
     if (openAsAdvanced) changeMode("advanced");
-    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
-    setFuture([]);
+    pushHistory();
     setPose(clonePose(favorite.pose));
     setView(favorite.view);
     setEquipment(favoriteEquipment);
@@ -1228,8 +1254,7 @@ export default function PoseEditor() {
   };
 
   const applyDetectedFigure = (figure: DetectedFigure, index: number) => {
-    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
-    setFuture([]);
+    pushHistory();
     setPose(clonePose(figure.pose));
     setView(figure.view);
     setSelectedJoint(null);
@@ -1278,8 +1303,7 @@ export default function PoseEditor() {
   const loadPreset = (id: string) => {
     const preset = posePresets.find((candidate) => candidate.id === id);
     if (!preset) return;
-    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
-    setFuture([]);
+    pushHistory();
     setPresetId(id);
     setPose(clonePose(preset.pose));
     setView(preset.view);
@@ -1311,7 +1335,7 @@ export default function PoseEditor() {
     } catch {
       // 一部のモバイルブラウザではタッチ終了後にポインターが無効になり例外を投げる
     }
-    dragging.current = { kind: "joint", joint, before: clonePose(pose) };
+    dragging.current = { kind: "joint", joint, before: snapshot() };
     setSelectedJoint(joint);
     setNotice(`${jointLabels[joint]}を調整中`);
   };
@@ -1323,9 +1347,19 @@ export default function PoseEditor() {
     } catch {
       // 一部のモバイルブラウザではタッチ終了後にポインターが無効になり例外を投げる
     }
-    dragging.current = { kind: "mark", id };
+    dragging.current = { kind: "mark", id, before: snapshot() };
     setSelectedMarkId(id);
     setNotice(`${markLabelOf(id)}を調整中`);
+  };
+
+  /** 関節やマーク以外の場所を押したら選択を解除する（選択したままで迷わないように）。 */
+  const clearSelectionOnBlank = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const target = event.target as Element | null;
+    if (target?.closest(".joint-hit-area")) return;
+    if (!selectedJoint && !selectedMarkId) return;
+    setSelectedJoint(null);
+    setSelectedMarkId(null);
+    setNotice("選択を解除しました");
   };
 
   const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -1345,31 +1379,39 @@ export default function PoseEditor() {
     if (!finished) return;
     dragging.current = null;
     if (finished.kind === "mark") {
+      pushHistory(finished.before);
       setNotice(`${markLabelOf(finished.id)}を移動しました`);
       return;
     }
-    setHistory((current) => [...current.slice(-29), finished.before]);
-    setFuture([]);
+    pushHistory(finished.before);
     setNotice(`${jointLabels[finished.joint]}を移動しました`);
   };
+
+  /** 戻す・やり直すで、姿勢とマークをまとめて入れ替える。 */
+  const applySnapshot = useCallback((target: EditSnapshot) => {
+    const restored = cloneSnapshot(target);
+    setPose(restored.pose);
+    setMarks(restored.marks);
+    setSelectedMarkId((current) => (restored.marks.some((mark) => mark.id === current) ? current : null));
+  }, []);
 
   const undo = useCallback(() => {
     const previous = history.at(-1);
     if (!previous) return;
     setHistory((current) => current.slice(0, -1));
-    setFuture((current) => [clonePose(pose), ...current].slice(0, 30));
-    setPose(clonePose(previous));
+    setFuture((current) => [snapshot(), ...current].slice(0, 30));
+    applySnapshot(previous);
     setNotice("1つ前に戻しました");
-  }, [history, pose]);
+  }, [applySnapshot, history, snapshot]);
 
   const redo = useCallback(() => {
     const next = future[0];
     if (!next) return;
     setFuture((current) => current.slice(1));
-    setHistory((current) => [...current, clonePose(pose)].slice(-30));
-    setPose(clonePose(next));
+    setHistory((current) => [...current, snapshot()].slice(-30));
+    applySnapshot(next);
     setNotice("やり直しました");
-  }, [future, pose]);
+  }, [applySnapshot, future, snapshot]);
 
   const mirror = () => {
     const swapPairs: [JointName, JointName][] = [
@@ -1383,8 +1425,7 @@ export default function PoseEditor() {
       next[left] = { x: 400 - pose[right].x, y: pose[right].y };
       next[right] = { x: 400 - pose[left].x, y: pose[left].y };
     });
-    setHistory((current) => [...current.slice(-29), clonePose(pose)]);
-    setFuture([]);
+    pushHistory();
     setPose(next);
     setItems({
       left: { ...items.right, rotation: -items.right.rotation },
@@ -1438,6 +1479,7 @@ export default function PoseEditor() {
       setNotice(`マークは1枚に${MARKS_LIMIT}個までです。不要なマークを削除してください`);
       return;
     }
+    pushHistory();
     const option = markOptions.find((candidate) => candidate.id === type);
     const anchor = selectedJoint ? pose[selectedJoint] : { x: 200, y: 150 };
     // 同じ場所に重ねて置いても掴めるよう、2個目以降は少しずらす。
@@ -1467,21 +1509,26 @@ export default function PoseEditor() {
     return markOptions.find((option) => option.id === mark?.type)?.label ?? "マーク";
   };
 
-  const updateSelectedMark = (patch: Partial<SceneMark>) => {
+  const updateSelectedMark = (patch: Partial<SceneMark>, keepHistory = false) => {
     if (!selectedMarkId) return;
+    if (!keepHistory) pushHistory();
     setMarks((current) => current.map((mark) => (mark.id === selectedMarkId ? { ...mark, ...patch } : mark)));
   };
 
-  const deleteSelectedMark = () => {
+  const deleteSelectedMark = useCallback(() => {
     if (!selectedMarkId) return;
-    const label = markLabelOf(selectedMarkId);
+    pushHistory();
+    const label = markOptions.find(
+      (option) => option.id === marks.find((mark) => mark.id === selectedMarkId)?.type,
+    )?.label ?? "マーク";
     setMarks((current) => current.filter((mark) => mark.id !== selectedMarkId));
     setSelectedMarkId(null);
     setNotice(`「${label}」を削除しました`);
-  };
+  }, [marks, pushHistory, selectedMarkId]);
 
   const clearMarks = () => {
     if (!marks.length) return;
+    pushHistory();
     setMarks([]);
     setSelectedMarkId(null);
     setNotice("マークをすべて削除しました");
@@ -1533,15 +1580,29 @@ export default function PoseEditor() {
         else undo();
         return;
       }
-      if (!selectedJoint || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      // 入力欄に文字を打っている最中は、編集用のキー操作を横取りしない。
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable));
+      if (event.key === "Escape") {
+        if (typing) return;
+        setSelectedJoint(null);
+        setSelectedMarkId(null);
+        setNotice("選択を解除しました");
+        return;
+      }
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedMarkId && !typing) {
+        event.preventDefault();
+        deleteSelectedMark();
+        return;
+      }
+      if (!selectedJoint || typing || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
       event.preventDefault();
       const amount = event.shiftKey ? 10 : 1;
       const delta = {
         ArrowUp: { x: 0, y: -amount }, ArrowDown: { x: 0, y: amount },
         ArrowLeft: { x: -amount, y: 0 }, ArrowRight: { x: amount, y: 0 },
       }[event.key]!;
-      setHistory((current) => [...current.slice(-29), clonePose(pose)]);
-      setFuture([]);
+      pushHistory();
       setPose((current) => ({
         ...current,
         [selectedJoint]: {
@@ -1552,7 +1613,7 @@ export default function PoseEditor() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pose, redo, selectedJoint, undo]);
+  }, [deleteSelectedMark, pushHistory, redo, selectedJoint, selectedMarkId, undo]);
 
   const activeItem = items[activeHand];
   // 簡単モードなのに拡張モードの装備・道具が残っている状態を、画面から気づけるようにする。
@@ -1628,7 +1689,8 @@ export default function PoseEditor() {
           <input
             id="mark-scale" type="range" min="0.5" max="2.4" step="0.1"
             value={selectedMark.scale}
-            onChange={(event) => updateSelectedMark({ scale: Number(event.target.value) })}
+            onPointerDown={() => pushHistory()}
+            onChange={(event) => updateSelectedMark({ scale: Number(event.target.value) }, true)}
           />
           {selectedMarkOption?.rotatable && (
             <>
@@ -1636,7 +1698,8 @@ export default function PoseEditor() {
               <input
                 id="mark-rotation" type="range" min="-180" max="180" step="15"
                 value={selectedMark.rotation}
-                onChange={(event) => updateSelectedMark({ rotation: Number(event.target.value) })}
+                onPointerDown={() => pushHistory()}
+                onChange={(event) => updateSelectedMark({ rotation: Number(event.target.value) }, true)}
               />
             </>
           )}
@@ -1679,8 +1742,8 @@ export default function PoseEditor() {
             <button className={mode === "advanced" ? "active" : ""} onClick={() => changeMode("advanced")} aria-pressed={mode === "advanced"}>拡張</button>
           </div>
           <Link className="button secondary nav-link" href="/about">About</Link>
-          <button className="button secondary" onClick={downloadPng}>PNG保存</button>
-          <button className="button primary" onClick={downloadSvg}>SVGを保存</button>
+          <button className="button secondary" onClick={downloadPng}>PNGで保存</button>
+          <button className="button primary" onClick={downloadSvg}>SVGで保存</button>
         </div>
       </header>
 
@@ -1765,7 +1828,7 @@ export default function PoseEditor() {
             <span className="count">{favorites.length} SAVED</span>
           </div>
           {favorites.length === 0 ? (
-            <p className="favorites-empty">編集画面の「☆ 保存」で現在の姿勢・装備・道具をこの端末（ブラウザ）に保存できます。</p>
+            <p className="favorites-empty">編集画面の「☆ お気に入り」で現在の姿勢・装備・道具をこの端末（ブラウザ）に保存できます。</p>
           ) : (
             <div className="preset-grid">
               {favorites.map((favorite) => (
@@ -1811,18 +1874,27 @@ export default function PoseEditor() {
               <button onClick={redo} disabled={!future.length} aria-label="やり直す">↷</button>
               <button onClick={mirror}>左右反転</button>
               <button onClick={reset}>姿勢リセット</button>
-              <button onClick={saveFavorite} aria-label="現在の状態をお気に入りに保存">☆ 保存</button>
+              <button onClick={saveFavorite} aria-label="現在の状態をお気に入りに保存">☆ お気に入り</button>
               <button className="photo-open" onClick={() => setPhotoOpen(true)}>写真から読み取る</button>
             </div>
           </div>
           <div className={`canvas-wrap ${figureStyle.background === "white" ? "white" : "transparent"}`}>
             <span className="view-badge">{view === "side" ? "SIDE / 横向き" : "FRONT / 正面"}</span>
-            <svg ref={svgRef} className="editor-canvas" viewBox="0 0 400 440" onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag} aria-label="関節をドラッグして編集するピクトグラム">
+            <svg
+              ref={svgRef}
+              className="editor-canvas"
+              viewBox="0 0 400 440"
+              onPointerDown={clearSelectionOnBlank}
+              onPointerMove={onPointerMove}
+              onPointerUp={finishDrag}
+              onPointerCancel={finishDrag}
+              aria-label="関節をドラッグして編集するピクトグラム"
+            >
               <Figure pose={pose} view={view} style={figureStyle} equipment={equipment} items={items} scene={scene} showTable={showTable} groundShadow={groundShadow} floorGrid={floorGrid} editable selected={selectedJoint} injuryJoint={injuryJoint} marks={marks} selectedMark={selectedMarkId} onJointPointerDown={onJointPointerDown} onMarkPointerDown={onMarkPointerDown} />
             </svg>
             <div className="canvas-status" role="status"><span className="status-dot" />{notice}</div>
           </div>
-          <div className="shortcut-note"><kbd>↑ ↓ ← →</kbd> 1px移動　<kbd>Shift</kbd> + 矢印 10px移動　<kbd>Ctrl Z</kbd> 戻す</div>
+          <div className="shortcut-note"><kbd>↑ ↓ ← →</kbd> 1px移動　<kbd>Shift</kbd> + 矢印 10px移動　<kbd>Ctrl Z</kbd> 戻す　<kbd>Esc</kbd> 選択解除　<kbd>Delete</kbd> マーク削除</div>
         </section>
 
         <aside className="settings-panel panel">
