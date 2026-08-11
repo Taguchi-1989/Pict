@@ -49,15 +49,17 @@ npm run deploy
 
 Worker名、静的ファイルの出力先、互換日付は `wrangler.jsonc` で固定しています。Cloudflare Workers Buildsでは、Build commandを `npm run build`、Deploy commandを `npm run deploy`、Root directoryを `/` に設定します。
 
-### 公開URLの設定（サムネイル表示に必須）
+### 公開URLの設定
 
-SNSやチャットに貼ったときのサムネイル（OGP画像）は、絶対URLでないと読み込まれません。ビルド時の環境変数に公開URLを設定してください。
+SNSやチャットに貼ったときのサムネイル（OGP画像）は、絶対URLでないと読み込まれません。公開URLは `app/layout.tsx` の `siteUrl` に埋め込んであり、既定は現在の公開先 `https://pict2.zealbootcamp-rbl.workers.dev` です。
+
+独自ドメインへ移すときは、ビルド時の環境変数で差し替えます。
 
 ```bash
 NEXT_PUBLIC_SITE_URL=https://example.com npm run build
 ```
 
-Cloudflare Workers Buildsでは、同じ変数をビルド環境変数に登録します。未設定の場合は `app/layout.tsx` の既定値が使われるため、独自ドメインを付けたら必ず設定します。
+Cloudflare Workers Buildsでは、同じ変数をビルド環境変数に登録します。
 
 ## ロゴとサムネイル画像
 

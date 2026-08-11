@@ -4,10 +4,10 @@ import "./globals.css";
 
 /**
  * SNSやチャットに貼ったときのサムネイル（OGP画像）は絶対URLでないと読まれないため、
- * 公開先のURLをビルド時に渡す。Cloudflareの環境変数に NEXT_PUBLIC_SITE_URL を設定する。
- * 未設定のままだと下の既定値のURLで書き出されるので、独自ドメインを付けたら必ず設定すること。
+ * 公開先のURLをビルド時に埋め込む。既定は現在の公開先のworkers.devのURL。
+ * 独自ドメインを付けたら、ビルド時の環境変数 NEXT_PUBLIC_SITE_URL でそのURLに差し替えること。
  */
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://pict2.workers.dev").replace(/\/$/, "");
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://pict2.zealbootcamp-rbl.workers.dev").replace(/\/$/, "");
 
 const title = "ピクトポーズ｜作業マニュアル向けピクトグラム編集";
 const description = "基本姿勢を選び、関節をドラッグして微調整。SVG・PNGで保存できる無料の人物ピクトグラムエディタ。";
