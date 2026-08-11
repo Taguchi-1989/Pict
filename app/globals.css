@@ -439,6 +439,13 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .mark-hint { margin: 8px 0 0; color: #7b867e; font-size: 9px; line-height: 1.65; }
 .mark-grid { max-height: none; margin-top: 9px; }
 .mark-grid .item-button { min-height: 46px; }
+.mark-group-tabs { grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 11px; }
+.mark-group-tabs button { min-height: 28px; font-size: 9px; }
+.mark-suggest { margin-top: 11px; padding: 9px 9px 11px; border: 1px dashed #cdd8cf; border-radius: 11px; background: #fbfdf5; }
+.mark-suggest-label { display: block; color: #5d6b60; font-size: 9px; font-weight: 800; }
+.mark-suggest .mark-grid { margin-top: 7px; }
+.mark-button { gap: 2px; padding-top: 4px; }
+.mark-thumb { display: block; width: 30px; height: 30px; }
 .mark-text {
   width: 72px;
   padding: 6px 8px;

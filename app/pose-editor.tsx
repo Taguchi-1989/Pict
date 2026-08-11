@@ -15,14 +15,18 @@ import {
   clonePose,
   jointLabels,
   markDefaults,
+  markGroupOptions,
   markOptions,
   markToneColors,
   markToneOptions,
+  signToneOptions,
+  suggestedMarksFor,
   posePresets,
   presetTagOrder,
   type PresetTag,
   type JointName,
   type ItemType,
+  type MarkGroup,
   type MarkType,
   type MarkTone,
   type Point,
@@ -32,6 +36,7 @@ import {
   type SceneMark,
   type SceneType,
 } from "./pose-data";
+import { MarkGraphic, isSignMark } from "./mark-art";
 import type { DetectedFigure } from "./photo-pose";
 
 // 解析用のwasmとモデルは10MBを超えるため、写真を読み取るときだけ読み込む。
@@ -788,98 +793,6 @@ function EquipmentLayer({ pose, style, equipment, view = "front" }: { pose: Pose
   );
 }
 
-/** ギザギザの衝突マークなど、放射状の輪郭を作る。 */
-function burstPath(spikes: number, outer: number, inner: number) {
-  const points = Array.from({ length: spikes * 2 }, (_, index) => {
-    const radius = index % 2 === 0 ? outer : inner;
-    const angle = (Math.PI * index) / spikes - Math.PI / 2;
-    return `${(Math.cos(angle) * radius).toFixed(1)} ${(Math.sin(angle) * radius).toFixed(1)}`;
-  });
-  return `M ${points.join(" L ")} Z`;
-}
-
-/**
- * 注目マークの図形。原点中心・半径30程度で描く。
- * halo=trueのときは同じ形を白く太らせ、人物の上に重ねても輪郭が沈まないようにする。
- */
-function MarkShape({ type, label, halo = false }: { type: MarkType; label?: string; halo?: boolean }) {
-  const paint = halo ? "#ffffff" : "currentColor";
-  const w = (value: number) => (halo ? value + 9 : value);
-  const round = { strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-
-  if (type === "impact") {
-    const path = burstPath(10, 34, 15);
-    return <path d={path} fill="#ffffff" stroke={paint} strokeWidth={w(5)} strokeLinejoin="round" />;
-  }
-  if (type === "circle") {
-    return <circle cx="0" cy="0" r="30" fill="none" stroke={paint} strokeWidth={w(6)} />;
-  }
-  if (type === "frame") {
-    return (
-      <rect
-        x="-32" y="-32" width="64" height="64" rx="5"
-        fill="none" stroke={paint} strokeWidth={w(5)}
-        strokeDasharray={halo ? undefined : "11 8"}
-        strokeLinejoin="round"
-      />
-    );
-  }
-  if (type === "arrow") {
-    return (
-      <g fill={paint} stroke={paint} {...round}>
-        <path d="M -36 0 H 10" fill="none" strokeWidth={w(9)} />
-        <path d="M 8 -17 L 38 0 L 8 17 Z" strokeWidth={w(3)} />
-      </g>
-    );
-  }
-  if (type === "caution") {
-    return (
-      <g {...round}>
-        <path d="M 0 -33 L 32 23 L -32 23 Z" fill={paint} stroke={paint} strokeWidth={w(6)} />
-        {!halo && (
-          <g stroke="#ffffff" fill="#ffffff">
-            <path d="M 0 -12 V 5" strokeWidth="7" strokeLinecap="round" />
-            <circle cx="0" cy="15" r="4" stroke="none" />
-          </g>
-        )}
-      </g>
-    );
-  }
-  if (type === "ban") {
-    return (
-      <g fill="none" stroke={paint} {...round}>
-        <circle cx="0" cy="0" r="28" strokeWidth={w(7)} />
-        <path d="M -20 20 L 20 -20" strokeWidth={w(7)} />
-      </g>
-    );
-  }
-  if (type === "pinch") {
-    return (
-      <g fill={paint} stroke={paint} {...round}>
-        <path d="M -40 0 H -20 M 40 0 H 20" fill="none" strokeWidth={w(8)} />
-        <path d="M -20 -14 L -4 0 L -20 14 Z" strokeWidth={w(3)} />
-        <path d="M 20 -14 L 4 0 L 20 14 Z" strokeWidth={w(3)} />
-      </g>
-    );
-  }
-  if (type === "step") {
-    return (
-      <g>
-        <circle cx="0" cy="0" r="25" fill={paint} stroke={paint} strokeWidth={w(3)} />
-        {!halo && (
-          // dominant-baselineを解釈しない貼り付け先（PowerPoint等）でもずれないよう、yで中央に寄せる。
-          <text
-            x="0" y="9.5"
-            textAnchor="middle"
-            fontFamily="sans-serif" fontSize="29" fontWeight="700" fill="#ffffff"
-          >{label?.slice(0, 2) || "1"}</text>
-        )}
-      </g>
-    );
-  }
-  return null;
-}
-
 function MarkLayer({ marks }: { marks: SceneMark[] }) {
   if (!marks.length) return null;
   return (
@@ -890,8 +803,7 @@ function MarkLayer({ marks }: { marks: SceneMark[] }) {
           color={markToneColors[mark.tone]}
           transform={`translate(${mark.x} ${mark.y}) rotate(${mark.rotation}) scale(${mark.scale})`}
         >
-          <MarkShape type={mark.type} label={mark.label} halo />
-          <MarkShape type={mark.type} label={mark.label} />
+          <MarkGraphic type={mark.type} tone={mark.tone} label={mark.label} />
         </g>
       ))}
     </g>
@@ -1128,6 +1040,7 @@ export default function PoseEditor() {
   const [injuryJoint, setInjuryJoint] = useState<JointName | null>(null);
   const [marks, setMarks] = useState<SceneMark[]>([]);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
+  const [markGroup, setMarkGroup] = useState<MarkGroup>("annotation");
   const [history, setHistory] = useState<Pose[]>([]);
   const [future, setFuture] = useState<Pose[]>([]);
   const [notice, setNotice] = useState("関節の丸をドラッグして姿勢を調整");
@@ -1541,29 +1454,65 @@ export default function PoseEditor() {
   }, [pose, redo, selectedJoint, undo]);
 
   const activeItem = items[activeHand];
+  const suggestedMarks = useMemo(() => suggestedMarksFor(presetId), [presetId]);
   const selectedMarkOption = selectedMark ? markOptions.find((option) => option.id === selectedMark.type) : null;
+
+  const groupOption = markGroupOptions.find((option) => option.id === markGroup);
+  const groupMarks = markOptions.filter((option) => option.group === markGroup);
+  const selectedIsSign = selectedMark ? isSignMark(selectedMark.type) : false;
+  const toneChoices = selectedIsSign ? signToneOptions : markToneOptions;
+
+  const markButton = (type: MarkType, key?: string) => {
+    const option = markOptions.find((candidate) => candidate.id === type);
+    if (!option) return null;
+    return (
+      <button
+        key={key ?? type}
+        className="item-button mark-button"
+        onClick={() => addMark(type)}
+        title={`${option.label}：${option.hint}`}
+      >
+        <svg viewBox="-46 -46 92 92" aria-hidden="true" className="mark-thumb">
+          <g color={markToneColors[markDefaults[type].tone]}>
+            <MarkGraphic type={type} tone={markDefaults[type].tone} halo={false} />
+          </g>
+        </svg>
+        {option.label}
+      </button>
+    );
+  };
 
   const markSection = (
     <div className="setting-group mark-group">
       <label>注目マーク <strong>絵に足す説明記号</strong></label>
       <p className="mark-hint">ボタンを押すと絵の中に置きます（関節を選んでいればその位置に）。キャンバス上でドラッグして移動、タップで選び直せます。</p>
-      <div className="item-grid mark-grid">
-        {markOptions.map((option) => (
+      {suggestedMarks.length > 0 && (
+        <div className="mark-suggest">
+          <span className="mark-suggest-label">この作業でよく使う</span>
+          <div className="item-grid mark-grid">
+            {suggestedMarks.map((type) => markButton(type, `suggest-${type}`))}
+          </div>
+        </div>
+      )}
+      <div className="segmented mark-group-tabs" role="group" aria-label="マークの種類">
+        {markGroupOptions.map((option) => (
           <button
             key={option.id}
-            className="item-button"
-            onClick={() => addMark(option.id)}
-            title={`${option.label}：${option.hint}`}
-          >
-            <span aria-hidden="true">{option.short}</span>{option.label}
-          </button>
+            className={markGroup === option.id ? "active" : ""}
+            onClick={() => setMarkGroup(option.id)}
+            aria-pressed={markGroup === option.id}
+          >{option.label}</button>
         ))}
+      </div>
+      <p className="mark-hint">{groupOption?.note}</p>
+      <div className="item-grid mark-grid">
+        {groupMarks.map((option) => markButton(option.id))}
       </div>
       {selectedMark ? (
         <div className="item-adjust">
           <label>選択中のマーク <strong>{selectedMarkOption?.label ?? "マーク"}</strong></label>
-          <div className="segmented cols-3">
-            {markToneOptions.map((tone) => (
+          <div className={`segmented ${selectedIsSign ? "" : "cols-3"}`}>
+            {toneChoices.map((tone) => (
               <button
                 key={tone.id}
                 className={selectedMark.tone === tone.id ? "active" : ""}

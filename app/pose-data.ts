@@ -19,13 +19,30 @@ export type SceneType =
 
 /**
  * 人物とは別に、資料側の説明として絵に足す注目マーク。
- * ぶつけた箇所のギザギザ、注目させたい丸、手順番号などをキャンバス上へ自由に置く。
+ *
+ * 2系統ある：
+ * - 注釈マーク：ぶつけた箇所のギザギザ、注目の丸、手順番号など。色は赤・青・黒から選ぶ。
+ * - 標識マーク：警告（黄三角）・禁止（赤丸斜線）・指示（青丸）・GHS（赤枠ひし形）と現場の物。
+ *   配色が意味を持つため、色は「標準色／白黒（モノクロ印刷用）」の2択として扱う。
  */
 export type MarkType =
+  // 注釈
   | "impact" | "circle" | "frame" | "arrow"
-  | "caution" | "ban" | "pinch" | "step";
+  | "caution" | "ban" | "pinch" | "step"
+  // 警告（危険源）
+  | "warn-pinch" | "warn-entangle" | "warn-electric" | "warn-hot"
+  | "warn-slip" | "warn-overhead" | "warn-falling" | "warn-oxygen"
+  // 禁止
+  | "ban-entry" | "ban-fire" | "ban-touch" | "ban-underload"
+  // 着用指示
+  | "must-helmet" | "must-goggles" | "must-gloves" | "must-mask"
+  // 化学品（GHS）
+  | "ghs-toxic" | "ghs-health" | "ghs-corrosive" | "ghs-flammable"
+  | "ghs-gas" | "ghs-oxidizer"
+  // 現場の物
+  | "cone";
 
-/** マークの色。人物の配色とは独立させ、赤・青・黒から選ぶ。 */
+/** マークの色。人物の配色とは独立させる。標識マークではalert＝標準色、ink＝白黒として使う。 */
 export type MarkTone = "alert" | "info" | "ink";
 
 export type SceneMark = {
@@ -52,23 +69,70 @@ export const markToneOptions: { id: MarkTone; label: string }[] = [
   { id: "ink", label: "黒" },
 ];
 
+/** 標識マーク用の色切り替え。規格の配色を崩さないよう、標準色か白黒かだけを選ばせる。 */
+export const signToneOptions: { id: MarkTone; label: string }[] = [
+  { id: "alert", label: "標準色" },
+  { id: "ink", label: "白黒" },
+];
+
+export type MarkGroup = "annotation" | "warning" | "prohibit" | "mandate" | "ghs" | "object";
+
+export const markGroupOptions: { id: MarkGroup; label: string; note: string }[] = [
+  { id: "annotation", label: "注釈", note: "ぶつけた箇所や注目させたい場所を示す記号" },
+  { id: "warning", label: "危険源", note: "黄色の三角＝そこに危険があることを示す警告標識" },
+  { id: "prohibit", label: "禁止", note: "赤丸に斜線＝してはいけない動作" },
+  { id: "mandate", label: "着用", note: "青丸＝着けなければならない保護具" },
+  { id: "ghs", label: "化学品", note: "GHS（化学品の分類および表示に関する世界調和システム）の絵表示" },
+  { id: "object", label: "現場の物", note: "区画や表示に使う現物" },
+];
+
 export const markOptions: {
   id: MarkType;
+  group: MarkGroup;
   label: string;
-  short: string;
   hint: string;
   /** 角度スライダーを出すかどうか（向きが意味を持つマークだけ）。 */
   rotatable: boolean;
 }[] = [
-  { id: "impact", label: "衝突（ギザギザ）", short: "✳", hint: "ぶつけた・当たった箇所", rotatable: false },
-  { id: "circle", label: "注目の丸", short: "◯", hint: "見てほしい箇所を丸で囲む", rotatable: false },
-  { id: "frame", label: "範囲の破線枠", short: "⬚", hint: "注目させたい範囲を四角で囲む", rotatable: false },
-  { id: "arrow", label: "矢印", short: "→", hint: "動きの向き・力のかかる向き", rotatable: true },
-  { id: "caution", label: "注意（△!）", short: "⚠", hint: "危険源・注意点", rotatable: false },
-  { id: "ban", label: "禁止（○＼）", short: "⊘", hint: "してはいけない動作", rotatable: false },
-  { id: "pinch", label: "はさまれ", short: "▶◀", hint: "はさまれ・巻き込まれの向き", rotatable: true },
-  { id: "step", label: "手順番号", short: "①", hint: "作業手順書の番号付け", rotatable: false },
+  { id: "impact", group: "annotation", label: "衝突（ギザギザ）", hint: "ぶつけた・当たった箇所", rotatable: false },
+  { id: "circle", group: "annotation", label: "注目の丸", hint: "見てほしい箇所を丸で囲む", rotatable: false },
+  { id: "frame", group: "annotation", label: "範囲の破線枠", hint: "注目させたい範囲を四角で囲む", rotatable: false },
+  { id: "arrow", group: "annotation", label: "矢印", hint: "動きの向き・力のかかる向き", rotatable: true },
+  { id: "caution", group: "annotation", label: "注意（△!）", hint: "危険源・注意点", rotatable: false },
+  { id: "ban", group: "annotation", label: "禁止（○＼）", hint: "してはいけない動作", rotatable: false },
+  { id: "pinch", group: "annotation", label: "はさまれ", hint: "はさまれ・巻き込まれの向き", rotatable: true },
+  { id: "step", group: "annotation", label: "手順番号", hint: "作業手順書の番号付け", rotatable: false },
+
+  { id: "warn-pinch", group: "warning", label: "はさまれ注意", hint: "ローラー・プレス・治具にはさまれる危険源", rotatable: false },
+  { id: "warn-entangle", group: "warning", label: "巻き込まれ注意", hint: "回転部・歯車・ベルトへの巻き込み", rotatable: false },
+  { id: "warn-electric", group: "warning", label: "感電注意", hint: "充電部・活線作業の危険源", rotatable: false },
+  { id: "warn-hot", group: "warning", label: "高温注意", hint: "高温面・蒸気・溶接部でのやけど", rotatable: false },
+  { id: "warn-slip", group: "warning", label: "転倒注意", hint: "床の油・水・段差によるすべり", rotatable: false },
+  { id: "warn-overhead", group: "warning", label: "頭上注意", hint: "梁・配管への激突", rotatable: false },
+  { id: "warn-falling", group: "warning", label: "落下物注意", hint: "上からの飛来・落下", rotatable: false },
+  { id: "warn-oxygen", group: "warning", label: "酸欠・窒息注意", hint: "タンク・ピット・不活性ガス置換部", rotatable: false },
+
+  { id: "ban-entry", group: "prohibit", label: "立入禁止", hint: "区画内に入ってはいけない", rotatable: false },
+  { id: "ban-fire", group: "prohibit", label: "火気厳禁", hint: "裸火・火花を出してはいけない", rotatable: false },
+  { id: "ban-touch", group: "prohibit", label: "さわるな", hint: "手を触れてはいけない部位", rotatable: false },
+  { id: "ban-underload", group: "prohibit", label: "吊り荷の下に入るな", hint: "クレーン作業中の立入禁止範囲", rotatable: false },
+
+  { id: "must-helmet", group: "mandate", label: "ヘルメット着用", hint: "保護帽の着用が必要", rotatable: false },
+  { id: "must-goggles", group: "mandate", label: "保護メガネ着用", hint: "飛来・薬液から目を守る", rotatable: false },
+  { id: "must-gloves", group: "mandate", label: "手袋着用", hint: "切創・薬液・高温から手を守る", rotatable: false },
+  { id: "must-mask", group: "mandate", label: "マスク着用", hint: "粉じん・有機溶剤の吸入防止", rotatable: false },
+
+  { id: "ghs-toxic", group: "ghs", label: "急性毒性（どくろ）", hint: "少量でも生命に危険がある物質", rotatable: false },
+  { id: "ghs-health", group: "ghs", label: "健康有害性", hint: "発がん性・呼吸器感作性・臓器障害など", rotatable: false },
+  { id: "ghs-corrosive", group: "ghs", label: "腐食性", hint: "皮膚腐食・眼の損傷・金属腐食", rotatable: false },
+  { id: "ghs-flammable", group: "ghs", label: "引火性", hint: "引火性の液体・ガス・固体", rotatable: false },
+  { id: "ghs-gas", group: "ghs", label: "高圧ガス", hint: "ボンベ・圧縮ガス・液化ガス", rotatable: false },
+  { id: "ghs-oxidizer", group: "ghs", label: "酸化性", hint: "他の物質の燃焼を助ける物質", rotatable: false },
+
+  { id: "cone", group: "object", label: "カラーコーン", hint: "区画表示・立入抑止", rotatable: false },
 ];
+
+const signDefault = { scale: 0.85, rotation: 0, tone: "alert" as MarkTone };
 
 export const markDefaults: Record<MarkType, { scale: number; rotation: number; tone: MarkTone }> = {
   impact: { scale: 1, rotation: 0, tone: "alert" },
@@ -79,6 +143,29 @@ export const markDefaults: Record<MarkType, { scale: number; rotation: number; t
   ban: { scale: 1.1, rotation: 0, tone: "alert" },
   pinch: { scale: 1, rotation: 0, tone: "alert" },
   step: { scale: 1, rotation: 0, tone: "ink" },
+  "warn-pinch": signDefault,
+  "warn-entangle": signDefault,
+  "warn-electric": signDefault,
+  "warn-hot": signDefault,
+  "warn-slip": signDefault,
+  "warn-overhead": signDefault,
+  "warn-falling": signDefault,
+  "warn-oxygen": signDefault,
+  "ban-entry": signDefault,
+  "ban-fire": signDefault,
+  "ban-touch": signDefault,
+  "ban-underload": signDefault,
+  "must-helmet": signDefault,
+  "must-goggles": signDefault,
+  "must-gloves": signDefault,
+  "must-mask": signDefault,
+  "ghs-toxic": signDefault,
+  "ghs-health": signDefault,
+  "ghs-corrosive": signDefault,
+  "ghs-flammable": signDefault,
+  "ghs-gas": signDefault,
+  "ghs-oxidizer": signDefault,
+  cone: { scale: 0.9, rotation: 0, tone: "alert" },
 };
 
 export type PresetItem = { type: ItemType; rotation: number; scale: number };
@@ -496,4 +583,65 @@ export const jointLabels: Record<JointName, string> = {
 
 export function clonePose(pose: Pose): Pose {
   return Object.fromEntries(Object.entries(pose).map(([key, point]) => [key, { ...point }])) as Pose;
+}
+
+/**
+ * 「この作業なら、まずこの危険源を示す」という対応表。
+ * 労災報告の事故の型と、作業手順書のKY（危険予知）でよく挙がるものを優先した。
+ * ここに無いプリセットは用途タグから拾う。
+ */
+const presetHazards: Record<string, MarkType[]> = {
+  "drill-wall": ["warn-entangle", "must-goggles", "must-gloves"],
+  "fasten-overhead": ["warn-falling", "must-helmet", "must-goggles"],
+  "tighten-pipe": ["warn-pinch", "must-gloves"],
+  "hammer-work": ["warn-pinch", "must-goggles", "must-gloves"],
+  "saw-work": ["warn-pinch", "must-gloves", "must-goggles"],
+  "cutter-table": ["must-gloves", "warn-pinch"],
+  "scissors-table": ["must-gloves"],
+  "spray-work": ["ghs-corrosive", "must-goggles", "must-mask"],
+  "watering-work": ["warn-slip", "must-goggles"],
+  "brush-clean": ["ghs-corrosive", "must-gloves", "must-mask"],
+  "wipe-table": ["ghs-flammable", "must-gloves"],
+  "flashlight-inspect": ["warn-overhead", "must-helmet"],
+  "impact-inspection": ["warn-overhead", "must-helmet"],
+  "height-check": ["warn-falling", "must-helmet"],
+  "crane-remote": ["ban-underload", "warn-falling", "must-helmet"],
+  "welding-work": ["warn-hot", "ban-fire", "must-goggles"],
+  "time-measure": ["warn-entangle"],
+  "record-check": ["must-helmet"],
+  lift: ["warn-slip", "must-gloves"],
+  push: ["warn-slip", "must-gloves"],
+  "carry-box": ["warn-slip", "must-helmet", "must-gloves"],
+
+  "slip-fall": ["warn-slip", "cone"],
+  "height-fall": ["warn-falling", "must-helmet"],
+  "caught-in": ["warn-entangle", "warn-pinch"],
+  "falling-object": ["warn-falling", "must-helmet"],
+  "hand-cut": ["warn-pinch", "must-gloves"],
+  "burn-contact": ["warn-hot", "must-gloves"],
+  "electric-shock": ["warn-electric", "ban-touch"],
+  "back-strain": ["warn-slip"],
+  "head-bump": ["warn-overhead", "must-helmet"],
+  "crouch-injured": ["cone"],
+  "heat-exhaustion": ["warn-hot"],
+  "lying-down": ["warn-oxygen", "cone"],
+};
+
+const tagHazards: Partial<Record<PresetTag, MarkType[]>> = {
+  高所作業: ["warn-falling", "must-helmet"],
+  工具作業: ["must-gloves", "must-goggles"],
+  "機械・設備": ["warn-entangle", "warn-pinch"],
+  電気: ["warn-electric", "ban-touch"],
+  "高温・溶接": ["warn-hot", "ban-fire"],
+  "運搬・重量物": ["warn-slip", "must-gloves"],
+  "点検・測定": ["warn-overhead", "must-helmet"],
+  清掃: ["ghs-corrosive", "must-gloves"],
+  "合図・誘導": ["cone", "ban-entry"],
+};
+
+/** プリセットに対する推奨マーク（最大5件）。ワンタップで貼れるようにするための候補。 */
+export function suggestedMarksFor(presetId: string): MarkType[] {
+  const preset = posePresets.find((candidate) => candidate.id === presetId);
+  const fromTags = preset ? preset.tags.flatMap((tag) => tagHazards[tag] ?? []) : [];
+  return [...new Set([...(presetHazards[presetId] ?? []), ...fromTags])].slice(0, 5);
 }
