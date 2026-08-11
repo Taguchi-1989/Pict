@@ -17,6 +17,70 @@ export type SceneType =
   | "none" | "cutting-table" | "scissor-table" | "wiping-table" | "overhead-crane"
   | "measuring-table" | "welding-table" | "impact-inspection" | "box-carry";
 
+/**
+ * 人物とは別に、資料側の説明として絵に足す注目マーク。
+ * ぶつけた箇所のギザギザ、注目させたい丸、手順番号などをキャンバス上へ自由に置く。
+ */
+export type MarkType =
+  | "impact" | "circle" | "frame" | "arrow"
+  | "caution" | "ban" | "pinch" | "step";
+
+/** マークの色。人物の配色とは独立させ、赤・青・黒から選ぶ。 */
+export type MarkTone = "alert" | "info" | "ink";
+
+export type SceneMark = {
+  id: string;
+  type: MarkType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  tone: MarkTone;
+  /** 手順番号マークに表示する文字（1〜2文字）。 */
+  label?: string;
+};
+
+export const markToneColors: Record<MarkTone, string> = {
+  alert: "#d63a2b",
+  info: "#1f6fb2",
+  ink: "#17211b",
+};
+
+export const markToneOptions: { id: MarkTone; label: string }[] = [
+  { id: "alert", label: "赤" },
+  { id: "info", label: "青" },
+  { id: "ink", label: "黒" },
+];
+
+export const markOptions: {
+  id: MarkType;
+  label: string;
+  short: string;
+  hint: string;
+  /** 角度スライダーを出すかどうか（向きが意味を持つマークだけ）。 */
+  rotatable: boolean;
+}[] = [
+  { id: "impact", label: "衝突（ギザギザ）", short: "✳", hint: "ぶつけた・当たった箇所", rotatable: false },
+  { id: "circle", label: "注目の丸", short: "◯", hint: "見てほしい箇所を丸で囲む", rotatable: false },
+  { id: "frame", label: "範囲の破線枠", short: "⬚", hint: "注目させたい範囲を四角で囲む", rotatable: false },
+  { id: "arrow", label: "矢印", short: "→", hint: "動きの向き・力のかかる向き", rotatable: true },
+  { id: "caution", label: "注意（△!）", short: "⚠", hint: "危険源・注意点", rotatable: false },
+  { id: "ban", label: "禁止（○＼）", short: "⊘", hint: "してはいけない動作", rotatable: false },
+  { id: "pinch", label: "はさまれ", short: "▶◀", hint: "はさまれ・巻き込まれの向き", rotatable: true },
+  { id: "step", label: "手順番号", short: "①", hint: "作業手順書の番号付け", rotatable: false },
+];
+
+export const markDefaults: Record<MarkType, { scale: number; rotation: number; tone: MarkTone }> = {
+  impact: { scale: 1, rotation: 0, tone: "alert" },
+  circle: { scale: 1.2, rotation: 0, tone: "alert" },
+  frame: { scale: 1.3, rotation: 0, tone: "alert" },
+  arrow: { scale: 1, rotation: 0, tone: "alert" },
+  caution: { scale: 1, rotation: 0, tone: "alert" },
+  ban: { scale: 1.1, rotation: 0, tone: "alert" },
+  pinch: { scale: 1, rotation: 0, tone: "alert" },
+  step: { scale: 1, rotation: 0, tone: "ink" },
+};
+
 export type PresetItem = { type: ItemType; rotation: number; scale: number };
 export type PresetDefaults = {
   helmet?: boolean;

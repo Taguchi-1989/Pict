@@ -218,6 +218,14 @@ button { color: inherit; }
   transition: r .12s ease, fill .12s ease;
 }
 .joint-hit-area:hover + .joint-handle, .joint-handle.is-selected { fill: var(--accent); stroke: var(--ink); }
+.mark-handle {
+  pointer-events: none;
+  fill: #fff;
+  stroke: #d63a2b;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .18));
+}
+.joint-hit-area:hover + .mark-handle, .mark-handle.is-selected { fill: #d63a2b; stroke: #fff; }
 .figure-root .scene-layer [fill]:not([fill="none"]):not([fill="white"]),
 .figure-root .scene-layer[fill]:not([fill="none"]):not([fill="white"]) { fill: var(--secondary-color); }
 .figure-root .scene-layer [stroke]:not([stroke="none"]):not([stroke="white"]),
@@ -428,6 +436,30 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
 .item-adjust { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 12px; padding-top: 11px; border-top: 1px dashed #d7ded9; }
 .item-adjust label { margin: 5px 0 0; }
 .item-adjust input[type="range"] { width: 100%; accent-color: var(--ink); }
+.mark-hint { margin: 8px 0 0; color: #7b867e; font-size: 9px; line-height: 1.65; }
+.mark-grid { max-height: none; margin-top: 9px; }
+.mark-grid .item-button { min-height: 46px; }
+.mark-text {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+.mark-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 9px; }
+.mark-actions button {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mark-actions button:hover { border-color: #d63a2b; color: #d63a2b; }
 .compact-style-group { display: grid; gap: 7px; }
 .compact-style-group > label { margin-top: 7px; margin-bottom: 3px; }
 .compact-style-group > label:first-child { margin-top: 0; }
