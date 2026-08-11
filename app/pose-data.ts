@@ -142,6 +142,13 @@ export const presetTagOrder = [
 
 export type PresetTag = (typeof presetTagOrder)[number];
 
+/**
+ * 資料でどれだけ出番があるかの順位。
+ * 1＝ほとんどの資料で使う、2＝作業が合えば使う、3＝限られた場面だけ。
+ * 「すべて」で一覧したときに1から順に並べ、探す手間を減らす。
+ */
+export type PresetRank = 1 | 2 | 3;
+
 export type PosePreset = {
   id: string;
   name: string;
@@ -150,6 +157,7 @@ export type PosePreset = {
   pose: Pose;
   defaults: PresetDefaults;
   tags: PresetTag[];
+  rank: PresetRank;
 };
 
 const base: Pose = {
@@ -171,6 +179,7 @@ function make(
   return {
     id, name, category, view, defaults,
     tags: presetTags[id] ?? [],
+    rank: presetRanks[id] ?? 2,
     pose: Object.fromEntries(
       Object.entries(base).map(([key, point]) => [key, overrides[key as JointName] ?? point]),
     ) as Pose,
@@ -225,6 +234,23 @@ const presetTags: Record<string, PresetTag[]> = {
   "crouch-injured": ["労災報告"],
   "heat-exhaustion": ["労災報告", "安全教育・KY"],
   "lying-down": ["労災報告"],
+};
+
+/**
+ * よく使う順のランク。作業手順書と労災報告で頻出するものを1にした。
+ * 迷いを減らすのが目的なので、1は各カテゴリの代表だけに絞っている。
+ */
+const presetRanks: Record<string, PresetRank> = {
+  // 1：まず出てきてほしい代表的な姿勢
+  neutral: 1, walk: 1, sit: 1, "side-stand": 1,
+  "one-up": 1, "point-right": 1, stop: 1,
+  "drill-wall": 1, "hammer-work": 1, "record-check": 1, lift: 1, "carry-box": 1,
+  "slip-fall": 1, "height-fall": 1, "caught-in": 1, "falling-object": 1, "head-bump": 1,
+
+  // 3：使う場面が限られるもの
+  "watering-work": 3, "scissors-table": 3, "wipe-table": 3,
+  "time-measure": 3, "caliper-measure": 3,
+  "heat-exhaustion": 3, "lying-down": 3, "crouch-injured": 3,
 };
 
 const sideStand: Partial<Record<JointName, Point>> = {

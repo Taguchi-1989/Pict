@@ -66,15 +66,42 @@ button { color: inherit; }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(440px, 1fr) minmax(310px, 350px);
+  /* 左右の幅は境界線のドラッグで変わる。狭い画面では下のメディアクエリが上書きする。 */
+  grid-template-columns: var(--col-left, 320px) minmax(380px, 1fr) var(--col-right, 350px);
   max-width: 1680px;
   min-height: calc(100vh - 140px);
   margin: 0 auto;
 }
 
 .panel { background: var(--panel); }
-.preset-panel { border-right: 1px solid var(--line); }
-.settings-panel { max-height: calc(100vh - 92px); overflow-y: auto; border-left: 1px solid var(--line); }
+.preset-panel { position: relative; border-right: 1px solid var(--line); }
+.col-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+.col-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background .15s ease;
+}
+.col-resizer:hover::after, .col-resizer:focus-visible::after, .col-resizer:active::after { background: var(--accent-dark); }
+.col-resizer.left { right: -6px; }
+.col-resizer.right { left: -6px; }
+.settings-panel { position: relative; max-height: calc(100vh - 92px); overflow-y: auto; border-left: 1px solid var(--line); }
 .editor-panel { display: flex; min-width: 0; flex-direction: column; background: #f0f3ef; }
 
 .panel-heading {
@@ -130,6 +157,7 @@ button { color: inherit; }
 .tag-tabs button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
 .tag-tabs button.active { border-color: var(--ink); background: #f4ffd0; color: var(--ink); }
 .tag-tabs button:disabled { cursor: not-allowed; opacity: .38; }
+.preset-rank { display: inline-block; margin-top: 3px; padding: 2px 6px; border-radius: 20px; background: var(--ink); color: var(--accent); font-size: 7px; font-weight: 900; letter-spacing: .04em; }
 .preset-tags { display: block; margin-top: 3px; color: #8b958d; font-size: 8px; font-style: normal; line-height: 1.4; }
 
 .preset-grid {
@@ -467,6 +495,31 @@ kbd { padding: 2px 5px; border: 1px solid #cfd7d1; border-bottom-width: 2px; bor
   cursor: pointer;
 }
 .mark-actions button:hover { border-color: #d63a2b; color: #d63a2b; }
+.equip-block { margin-top: 12px; padding-top: 11px; border-top: 1px dashed #e0e6e1; }
+.equip-block:first-of-type { margin-top: 9px; padding-top: 0; border-top: 0; }
+.equip-block-label { display: block; margin-bottom: 6px; color: #7b867e; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.chip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.equip-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fafbfa;
+  color: #56625a;
+  font-size: 9px;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+}
+.equip-chip:hover { border-color: #aeb8b1; }
+.equip-chip.active { border: 2px solid var(--ink); padding: 0 7px; background: #f4ffd0; color: var(--ink); }
+.chip-icon { display: grid; flex: 0 0 auto; width: 20px; height: 20px; place-items: center; border-radius: 6px; background: #fff; box-shadow: inset 0 0 0 1px #d9e0db; font-size: 11px; font-weight: 900; }
+.mode-banner { display: grid; gap: 8px; margin: 16px 19px 0; padding: 12px 13px; border: 1px solid #e2d7a8; border-radius: 11px; background: #fdf8e3; }
+.mode-banner p { margin: 0; color: #6b6231; font-size: 9px; line-height: 1.6; }
+.mode-banner button { min-height: 30px; border: 1px solid var(--ink); border-radius: 8px; background: var(--ink); color: var(--accent); font-size: 9px; font-weight: 800; cursor: pointer; }
 .compact-style-group { display: grid; gap: 7px; }
 .compact-style-group > label { margin-top: 7px; margin-bottom: 3px; }
 .compact-style-group > label:first-child { margin-top: 0; }
@@ -514,6 +567,7 @@ footer a { color: inherit; font-weight: 700; text-underline-offset: 3px; }
 button:focus-visible, input:focus-visible, .joint-hit-area:focus-visible { outline: 3px solid #a9c900; outline-offset: 2px; }
 
 @media (max-width: 1120px) {
+  .col-resizer { display: none; }
   .topbar { grid-template-columns: 1fr auto; }
   .header-copy { display: none; }
   .workspace { grid-template-columns: 250px minmax(420px, 1fr); }
