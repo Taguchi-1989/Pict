@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BrandMark } from "../brand-mark";
 
+// タイトルの「｜ピクトポーズ」はapp/layout.tsxのtemplateが付ける。
 export const metadata: Metadata = {
-  title: "About | ピクトポーズ",
+  title: "About",
   description: "ピクトポーズの仕組み、商用利用、機能要望のご案内。",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "About｜ピクトポーズ",
+    description: "ピクトポーズの仕組み、商用利用、機能要望のご案内。",
+    url: "/about",
+  },
 };
 
 export default function AboutPage() {
@@ -11,7 +19,7 @@ export default function AboutPage() {
     <main className="about-shell">
       <header className="about-topbar">
         <Link className="brand-lockup" href="/">
-          <span className="brand-mark" aria-hidden="true"><span /><i /></span>
+          <BrandMark className="brand-mark" />
           <span><span className="eyebrow">MANUAL FIGURE STUDIO</span><strong>ピクトポーズ</strong></span>
         </Link>
         <Link className="about-back" href="/">← 編集画面へ戻る</Link>

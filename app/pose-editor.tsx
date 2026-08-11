@@ -12,6 +12,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { BrandMark } from "./brand-mark";
 import {
   clonePose,
   jointLabels,
@@ -1732,7 +1733,7 @@ export default function PoseEditor() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true"><span /><i /></div>
+          <BrandMark className="brand-mark" />
           <div><p className="eyebrow">MANUAL FIGURE STUDIO</p><h1>ピクトポーズ</h1></div>
         </div>
         <p className="header-copy">姿勢・保護具・道具を組み合わせ、作業マニュアル用の人物図を保存。</p>

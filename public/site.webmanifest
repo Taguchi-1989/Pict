@@ -1,0 +1,30 @@
+{
+  "name": "ピクトポーズ｜作業マニュアル向けピクトグラム編集",
+  "short_name": "ピクトポーズ",
+  "description": "基本姿勢を選び、関節をドラッグして微調整。SVG・PNGで保存できる人物ピクトグラムエディタ。",
+  "lang": "ja",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f3",
+  "theme_color": "#17211b",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

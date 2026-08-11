@@ -49,6 +49,37 @@ npm run deploy
 
 Worker名、静的ファイルの出力先、互換日付は `wrangler.jsonc` で固定しています。Cloudflare Workers Buildsでは、Build commandを `npm run build`、Deploy commandを `npm run deploy`、Root directoryを `/` に設定します。
 
+### 公開URLの設定（サムネイル表示に必須）
+
+SNSやチャットに貼ったときのサムネイル（OGP画像）は、絶対URLでないと読み込まれません。ビルド時の環境変数に公開URLを設定してください。
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://example.com npm run build
+```
+
+Cloudflare Workers Buildsでは、同じ変数をビルド環境変数に登録します。未設定の場合は `app/layout.tsx` の既定値が使われるため、独自ドメインを付けたら必ず設定します。
+
+## ロゴとサムネイル画像
+
+ロゴマークの図形は `app/brand-geometry.ts` にだけ定義してあり、画面のロゴ（`app/brand-mark.tsx`）と配布用の画像が同じ形を共有します。形を変えたら次のコマンドで `public/` の画像を作り直してください。
+
+```bash
+npm run brand
+```
+
+書き出されるファイル：
+
+| ファイル | 用途 |
+| --- | --- |
+| `public/favicon.svg` | ブラウザのタブ。ロゴマークそのものなので資料にも使えます |
+| `public/apple-touch-icon.png` | iOSのホーム画面（180px・全面塗り） |
+| `public/icon-192.png` / `icon-512.png` | Androidのホーム画面・PWA |
+| `public/icon-maskable-512.png` | Androidのマスク付きアイコン（内側に余白を確保） |
+| `public/ogp.png` | SNS・チャットのサムネイル（1200×630） |
+| `public/site.webmanifest` | アイコンとテーマ色の定義 |
+
+PNGはヘッドレスChromeで描画します。Playwrightが入れたChromeを自動で探しますが、見つからない場合は `CHROME_PATH=/usr/bin/chromium npm run brand` のようにパスを渡します。`npm run brand -- --svg-only` でSVGとマニフェストだけ更新できます。
+
 ## Cloudflare公開方針
 
 Next.jsアプリとしてCloudflare Workersへ配置する。GitHubにリポジトリを作成後、Cloudflare Dashboardの **Workers & Pages → Create application → Import a repository** から接続し、mainブランチの更新を自動公開する。
